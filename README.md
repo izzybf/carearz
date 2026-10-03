@@ -12,13 +12,15 @@ A job search app with detailed filters that generates a resume and cover letter 
 - **Tailoring.** Pick a job to get a tailored resume, a cover letter and short notes on how well you fit. You can edit, copy and download each one.
 - **Applications.** Every tailored set is saved so you can track its status.
 
-The jobs that ship with the app are made-up examples. Use **+ Add a job** to paste a real posting from any site.
+- **Live jobs.** On the web version, **Search live jobs** pulls real listings from [JSearch](https://rapidapi.com/letscrape-6bRBa3QguO5/api/jsearch) (Google for Jobs results, including many LinkedIn, Indeed and ZipRecruiter postings) and [Adzuna](https://developer.adzuna.com/). Both need your own free key, which you add under **My resume**. Results from the two are merged, duplicates are dropped, and then your filters narrow them down.
+
+The app also includes made-up example jobs, which are hidden once you've loaded live results. You can still use **+ Add a job** to paste any posting by hand.
 
 ## Running it
 
 It's one static file, `index.html`, with no build step. Open it in a browser or serve the folder with any static host.
 
-- **On GitHub Pages or any other host**, tailoring and "fill in from posting" use your own Claude API key, which you add under **My resume**. The key stays in your browser's local storage and goes only to `api.anthropic.com`. Your profile, searches and applications are also kept in your browser.
+- **On GitHub Pages or any other host**, live job search uses your JSearch and/or Adzuna keys, and tailoring and "fill in from posting" use your own Claude API key, which you add under **My resume**. The key stays in your browser's local storage and goes only to `api.anthropic.com`. Your profile, searches and applications are also kept in your browser.
 - **Inside the Claude app** (as a published Artifact), it uses your Claude account instead, so you don't need a key, and your data saves to your account.
 
 ## Zip code data
