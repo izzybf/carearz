@@ -1,0 +1,1450 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="description" content="Carearz: filter jobs in detail and generate a resume and cover letter tailored to each one.">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
+</head>
+<body>
+<title>Carearz</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Familjen+Grotesk:wght@400;500;600;700&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,600;1,6..72,400&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: three working panes (filters | job list | job detail + tailoring) that collapse to one column with a slide-over detail on phones */
+:root{
+  --bg:#F2F5F4; --surface:#FFFFFF; --sunk:#E8EDEB; --ink:#17212A; --muted:#5A6771; --line:#D8E0DD;
+  --accent:#2A5C7C; --accent-soft:#DDE9F0; --accent-ink:#FFFFFF;
+  --mark:#D99A1E; --mark-soft:#FBEFD3; --mark-ink:#5A3D00;
+  --good:#2C7A4E; --good-soft:#DDF0E4; --danger:#B0423A; --danger-soft:#F7E1DE;
+  --f-ui:"Familjen Grotesk", "Helvetica Neue", Arial, sans-serif;
+  --f-doc:"Newsreader", Georgia, "Times New Roman", serif;
+  --f-num:"IBM Plex Mono", ui-monospace, Menlo, monospace;
+  --r:8px; --shadow:0 1px 2px rgba(20,35,45,.06), 0 6px 24px rgba(20,35,45,.06);
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0F151A; --surface:#161F25; --sunk:#1C272E; --ink:#E4EBEF; --muted:#93A2AC; --line:#27343C;
+  --accent:#7FB4D8; --accent-soft:#1D3341; --accent-ink:#0D161C;
+  --mark:#E8B347; --mark-soft:#3A2E14; --mark-ink:#F6DDA2;
+  --good:#6DC293; --good-soft:#173326; --danger:#E5867B; --danger-soft:#3A1E1B;
+  --shadow:0 1px 2px rgba(0,0,0,.3), 0 6px 24px rgba(0,0,0,.25); color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0F151A; --surface:#161F25; --sunk:#1C272E; --ink:#E4EBEF; --muted:#93A2AC; --line:#27343C;
+  --accent:#7FB4D8; --accent-soft:#1D3341; --accent-ink:#0D161C;
+  --mark:#E8B347; --mark-soft:#3A2E14; --mark-ink:#F6DDA2;
+  --good:#6DC293; --good-soft:#173326; --danger:#E5867B; --danger-soft:#3A1E1B;
+  --shadow:0 1px 2px rgba(0,0,0,.3), 0 6px 24px rgba(0,0,0,.25); color-scheme:dark}
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-ui);font-size:15px;line-height:1.45}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+h1,h2,h3{text-wrap:balance;margin:0}
+.num{font-family:var(--f-num);font-variant-numeric:tabular-nums}
+.muted{color:var(--muted)}
+.label{font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600}
+
+/* Top bar */
+.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:var(--bg);border-bottom:1px solid var(--line)}
+.top-in{display:flex;align-items:center;gap:16px;padding:10px 16px;flex-wrap:wrap;max-width:1500px;margin:0 auto}
+.brand{display:flex;align-items:baseline;gap:8px;margin-right:auto}
+.brand b{font-size:22px;font-weight:700;letter-spacing:-.02em}
+.brand b span{color:var(--accent)}
+.brand small{color:var(--muted);font-size:13px}
+.tabs{display:flex;gap:2px;background:var(--sunk);padding:3px;border-radius:999px}
+.tabs button{border:0;background:none;padding:6px 14px;border-radius:999px;cursor:pointer;font-weight:500;color:var(--muted)}
+.tabs button[aria-selected="true"]{background:var(--surface);color:var(--ink);box-shadow:var(--shadow)}
+.save-state{font-size:12.5px;color:var(--muted);display:flex;align-items:center;gap:6px}
+.save-state i{width:7px;height:7px;border-radius:50%;background:var(--muted);display:inline-block}
+.save-state.cloud i{background:var(--good)}
+
+.wrap{max-width:1500px;margin:0 auto;padding-inline:16px;padding-block:16px 40px}
+
+/* Buttons & controls */
+.btn{border:1px solid var(--line);background:var(--surface);padding:7px 13px;border-radius:var(--r);cursor:pointer;font-weight:500;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.btn:hover{border-color:var(--muted)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.primary:hover{filter:brightness(1.07)}
+.btn.ghost{background:none;border-color:transparent;color:var(--muted)}
+.btn.ghost:hover{color:var(--ink);background:var(--sunk)}
+.btn.small{padding:4px 9px;font-size:13px}
+.btn.danger{color:var(--danger)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+input[type=text],input[type=number],input[type=email],select,textarea{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:7px 9px;width:100%;min-width:0}
+textarea{resize:vertical;line-height:1.5}
+input:focus,select:focus,textarea:focus{border-color:var(--accent);outline:none;box-shadow:0 0 0 3px var(--accent-soft)}
+
+/* Main layout */
+.jobs-layout{display:grid;grid-template-columns:300px minmax(0,1fr) minmax(0,1.25fr);gap:16px;align-items:start}
+.pane{background:var(--surface);border:1px solid var(--line);border-radius:12px;min-width:0}
+.filters{position:sticky;top:calc(env(safe-area-inset-top,0px) + 70px);max-height:calc(100vh - 90px);overflow:auto}
+.detail{position:sticky;top:calc(env(safe-area-inset-top,0px) + 70px);max-height:calc(100vh - 90px);overflow:auto}
+
+/* Searches (OR groups) */
+.searches{padding:14px 14px 10px;border-bottom:1px solid var(--line);display:grid;gap:8px}
+.search-tabs{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.stab{border:1px solid var(--line);background:var(--bg);border-radius:999px;padding:4px 6px 4px 11px;display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-size:13.5px}
+.stab[aria-selected="true"]{border-color:var(--accent);background:var(--accent-soft)}
+.stab .ct{font-family:var(--f-num);font-size:11.5px;background:var(--surface);border-radius:999px;padding:1px 7px;color:var(--muted)}
+.stab.off{opacity:.55;text-decoration:line-through}
+.or{font-size:11px;color:var(--muted);font-weight:600;letter-spacing:.06em}
+.search-name{display:flex;gap:6px;align-items:center}
+.search-name input{font-weight:600}
+.fsec{padding:12px 14px;border-bottom:1px solid var(--line);display:grid;gap:8px}
+.fsec:last-child{border-bottom:0}
+.fsec .row{display:flex;gap:8px;align-items:center}
+.chips{display:flex;flex-wrap:wrap;gap:5px}
+.chip{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:3px 10px;font-size:13px;cursor:pointer;color:var(--ink)}
+.chip[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:var(--bg)}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:6px;overflow:hidden;flex:none}
+.seg button{border:0;background:var(--surface);padding:6px 9px;cursor:pointer;font-size:13px;color:var(--muted)}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
+.hint{font-size:12.5px;color:var(--muted);margin:0}
+.toggle{display:flex;gap:8px;align-items:flex-start;font-size:14px;cursor:pointer}
+.toggle input{margin-top:3px;accent-color:var(--accent)}
+input[type=range]{width:100%;accent-color:var(--accent)}
+
+/* Results list */
+.list-head{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;margin-bottom:10px}
+.list-head h2{font-size:20px;letter-spacing:-.01em}
+.list-head .ctrls{display:flex;gap:8px;align-items:center}
+.list-head select{width:auto}
+.summary{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;align-items:center}
+.sum-pill{font-size:12.5px;background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:3px 8px;color:var(--muted)}
+.sum-pill b{color:var(--ink);font-weight:600}
+.cards{display:grid;gap:8px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:13px 14px;cursor:pointer;display:grid;gap:7px;text-align:left;width:100%}
+.card:hover{border-color:var(--muted)}
+.card[aria-current="true"]{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-soft)}
+.card-top{display:flex;gap:10px;justify-content:space-between;align-items:flex-start}
+.card h3{font-size:16px;font-weight:600;line-height:1.25}
+.card .co{color:var(--muted);font-size:13.5px}
+.match{flex:none;font-family:var(--f-num);font-size:12px;border-radius:6px;padding:3px 7px;background:var(--sunk);color:var(--muted);text-align:center;line-height:1.2}
+.match.hi{background:var(--mark-soft);color:var(--mark-ink)}
+.match small{display:block;font-family:var(--f-ui);font-size:10px;letter-spacing:.06em;text-transform:uppercase}
+.facts{display:flex;flex-wrap:wrap;gap:5px 12px;font-size:13px;color:var(--muted)}
+.facts .pay{color:var(--ink);font-family:var(--f-num);font-size:12.5px}
+.tagrow{display:flex;flex-wrap:wrap;gap:5px}
+.tag{font-size:11.5px;border-radius:4px;padding:2px 7px;background:var(--sunk);color:var(--muted)}
+.tag.arr-remote{background:var(--accent-soft);color:var(--accent)}
+.tag.sched{background:var(--good-soft);color:var(--good)}
+.tag.fit{background:var(--mark-soft);color:var(--mark-ink)}
+.tag.via{background:none;border:1px dashed var(--line)}
+.tag.mine{background:none;border:1px solid var(--accent);color:var(--accent)}
+.empty{padding:28px 18px;text-align:center;color:var(--muted);border:1px dashed var(--line);border-radius:10px;background:var(--surface)}
+
+/* Detail */
+.d-head{padding:18px 20px 14px;border-bottom:1px solid var(--line);display:grid;gap:8px}
+.d-head h2{font-size:23px;letter-spacing:-.015em;line-height:1.2}
+.d-back{display:none}
+.d-body{padding:16px 20px;display:grid;gap:18px}
+.factgrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.factgrid div{background:var(--surface);padding:8px 10px}
+.factgrid dt{font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
+.factgrid dd{margin:2px 0 0;font-size:14px}
+.d-body p{margin:0;max-width:68ch}
+.d-body ul{margin:0;padding-left:20px;display:grid;gap:3px}
+.skill-on{background:var(--mark-soft);color:var(--mark-ink)}
+
+.tailor{border-top:1px solid var(--line);padding:16px 20px 20px;display:grid;gap:12px;background:var(--bg);border-radius:0 0 12px 12px}
+.tailor h3{font-size:17px}
+.opts{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px}
+.opts label{display:grid;gap:4px;font-size:13px;color:var(--muted)}
+.warnbox{font-size:13.5px;background:var(--mark-soft);color:var(--mark-ink);border-radius:8px;padding:9px 12px}
+.errbox{font-size:13.5px;background:var(--danger-soft);color:var(--danger);border-radius:8px;padding:9px 12px}
+.doc-tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.doc-tabs button{border:0;background:none;padding:8px 12px;cursor:pointer;color:var(--muted);font-weight:500;border-bottom:2px solid transparent;margin-bottom:-1px}
+.doc-tabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent)}
+.doc-actions{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.paper{background:var(--surface);border:1px solid var(--line);border-radius:4px;box-shadow:var(--shadow);padding:28px 30px;font-family:var(--f-doc);font-size:15.5px;line-height:1.55;overflow-wrap:anywhere;min-height:180px}
+.paper h1{font-size:25px;font-weight:600;margin:0 0 2px;font-family:var(--f-doc)}
+.paper h2{font-size:13px;font-family:var(--f-ui);letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin:18px 0 6px;padding-bottom:3px;border-bottom:1px solid var(--line)}
+.paper h3{font-size:16px;font-weight:600;margin:10px 0 2px;font-family:var(--f-doc)}
+.paper p{margin:0 0 9px}
+.paper ul{margin:0 0 9px;padding-left:20px}
+.paper .thinking{font-family:var(--f-ui);color:var(--muted);font-size:14px;display:flex;align-items:center;gap:8px}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--accent);animation:pulse 1.2s ease-in-out infinite}
+@keyframes pulse{50%{opacity:.25}}
+@media (prefers-reduced-motion: reduce){.dot{animation:none}}
+.paper-edit{width:100%;min-height:420px;font-family:var(--f-num);font-size:13px}
+
+/* Profile */
+.profile-grid{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:16px;align-items:start}
+.form{padding:20px;display:grid;gap:14px}
+.form h2{font-size:20px}
+.field{display:grid;gap:5px}
+.field > span{font-size:13px;font-weight:600}
+.field small{color:var(--muted);font-size:12.5px}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.side-note{padding:18px 20px;display:grid;gap:10px;font-size:14px}
+.side-note h3{font-size:16px}
+.side-note ol{margin:0;padding-left:20px;display:grid;gap:6px}
+.chiplist{display:flex;flex-wrap:wrap;gap:5px}
+
+/* Applications */
+.apps{display:grid;gap:8px}
+.app-row{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px 14px;display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:12px;align-items:center}
+.app-row h3{font-size:15.5px;font-weight:600}
+.app-row select{width:auto}
+.status{font-size:12px;border-radius:4px;padding:2px 7px}
+.st-draft{background:var(--sunk);color:var(--muted)}
+.st-applied{background:var(--accent-soft);color:var(--accent)}
+.st-interview{background:var(--mark-soft);color:var(--mark-ink)}
+.st-offer{background:var(--good-soft);color:var(--good)}
+.st-closed{background:var(--sunk);color:var(--muted);text-decoration:line-through}
+.app-view{margin-top:14px}
+
+/* Overlay for add-a-job */
+.overlay{position:fixed;inset:0;background:rgba(10,18,24,.45);z-index:50;display:flex;align-items:flex-start;justify-content:center;padding:calc(env(safe-area-inset-top,0px) + 30px) 16px 30px;overflow:auto}
+.modal{background:var(--surface);border-radius:12px;max-width:640px;width:100%;box-shadow:var(--shadow);border:1px solid var(--line)}
+.modal .form{gap:12px}
+.modal-foot{display:flex;gap:8px;justify-content:flex-end;padding:0 20px 18px;flex-wrap:wrap}
+
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom,0px) + 18px);background:var(--ink);color:var(--bg);padding:9px 16px;border-radius:8px;font-size:14px;z-index:60;box-shadow:var(--shadow)}
+.filters-toggle{display:none}
+
+@media (max-width:1180px){
+  .jobs-layout{grid-template-columns:280px minmax(0,1fr)}
+  .detail{position:fixed;inset:0;max-height:none;border-radius:0;z-index:40;display:none;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+  .detail.open{display:block}
+  .d-back{display:inline-flex;justify-self:start}
+  .tailor{border-radius:0}
+}
+@media (max-width:760px){
+  .jobs-layout{grid-template-columns:minmax(0,1fr)}
+  .filters{position:static;max-height:none;display:none}
+  .filters.open{display:block}
+  .filters-toggle{display:inline-flex}
+  .profile-grid{grid-template-columns:minmax(0,1fr)}
+  .two{grid-template-columns:1fr}
+  .factgrid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .app-row{grid-template-columns:minmax(0,1fr)}
+  .paper{padding:20px 18px}
+  .brand small{display:none}
+}
+</style>
+
+<header class="top">
+  <div class="top-in">
+    <div class="brand"><b>Carea<span>rz</span></b><small>find it, filter it, apply with a tailored resume</small></div>
+    <div class="tabs" role="tablist" aria-label="Sections">
+      <button role="tab" id="tab-jobs" data-view="jobs" aria-selected="true">Jobs</button>
+      <button role="tab" id="tab-profile" data-view="profile" aria-selected="false">My resume</button>
+      <button role="tab" id="tab-apps" data-view="apps" aria-selected="false">Applications <span id="apps-count" class="num"></span></button>
+    </div>
+    <div class="save-state" id="save-state" title="Where your profile, searches and applications are kept"><i></i><span>Saved in this browser</span></div>
+  </div>
+</header>
+
+<main class="wrap">
+  <section id="view-jobs">
+    <div class="jobs-layout">
+      <aside class="pane filters" id="filters" aria-label="Filters"></aside>
+      <div style="min-width:0">
+        <div class="list-head">
+          <h2 id="result-title">Jobs</h2>
+          <div class="ctrls">
+            <button class="btn small filters-toggle" id="filters-toggle" aria-expanded="false">Filters</button>
+            <label class="muted" for="sort" style="font-size:13px">Sort</label>
+            <select id="sort">
+              <option value="match">Best match</option>
+              <option value="new">Newest</option>
+              <option value="pay">Highest pay</option>
+              <option value="near">Nearest</option>
+            </select>
+            <button class="btn small" id="add-job">+ Add a job</button>
+          </div>
+        </div>
+        <div class="summary" id="summary"></div>
+        <div class="cards" id="cards"></div>
+        <p class="hint" style="margin-top:14px">Listings marked “example” are sample data so you can try the filters. Use <b>Add a job</b> to paste a real posting from any job site and tailor to it.</p>
+      </div>
+      <aside class="pane detail" id="detail" aria-label="Job detail"></aside>
+    </div>
+  </section>
+
+  <section id="view-profile" hidden>
+    <div class="profile-grid">
+      <form class="pane form" id="profile-form" autocomplete="off"></form>
+      <aside class="pane side-note">
+        <h3>How tailoring uses this</h3>
+        <ol>
+          <li>Paste your current resume. It is the source of truth: Claude rewrites and reorders it for each job but is told not to invent jobs, degrees or numbers.</li>
+          <li>Skills drive the match score on every listing.</li>
+          <li>Hobbies and interests flag jobs that connect to them, and can go into a short “Interests” section when they help.</li>
+          <li>Your home city is the “Home” location in the filters.</li>
+        </ol>
+        <p class="hint" id="profile-where"></p>
+        <div id="apikey-box" hidden style="display:grid;gap:6px;border-top:1px solid var(--line);padding-top:12px">
+          <h3>Claude API key</h3>
+          <p class="hint">Outside the Claude app, tailoring uses your own key from console.anthropic.com. It is kept in this browser only and sent straight to Anthropic.</p>
+          <input type="password" id="apikey" placeholder="sk-ant-…" autocomplete="off" aria-label="Claude API key">
+          <div class="doc-actions"><button type="button" class="btn small" id="apikey-save">Save key</button><button type="button" class="btn ghost small" id="apikey-clear">Remove</button><span class="muted" id="apikey-state" style="font-size:12.5px"></span></div>
+        </div>
+        <div id="skills-preview"></div>
+      </aside>
+    </div>
+  </section>
+
+  <section id="view-apps" hidden>
+    <div class="list-head"><h2>Applications</h2><span class="muted" style="font-size:13.5px">Every tailored resume and cover letter is saved here.</span></div>
+    <div class="apps" id="apps"></div>
+    <div class="app-view" id="app-view"></div>
+  </section>
+</main>
+
+<div id="overlay-root"></div>
+
+<script>
+(() => {
+"use strict";
+
+/* ---------- Reference data ---------- */
+const CITIES = {
+  "Portland, OR":[45.5152,-122.6784], "Beaverton, OR":[45.4871,-122.8037], "Lake Oswego, OR":[45.4207,-122.6706],
+  "Hillsboro, OR":[45.5229,-122.9898], "Vancouver, WA":[45.6387,-122.6615], "Salem, OR":[44.9429,-123.0351],
+  "Seattle, WA":[47.6062,-122.3321], "Austin, TX":[30.2672,-97.7431], "Denver, CO":[39.7392,-104.9903],
+  "Chicago, IL":[41.8781,-87.6298], "New York, NY":[40.7128,-74.0060]
+};
+const ARR = {remote:"Remote", hybrid:"Hybrid", onsite:"On-site"};
+const SCHED = {"full-time":"Full-time","part-time":"Part-time","contract":"Contract","temporary":"Temporary","internship":"Internship"};
+const LEVEL = {entry:"Entry", mid:"Mid", senior:"Senior"};
+const SIZE = {startup:"Startup", small:"Small business", mid:"Mid-size", enterprise:"Large company", nonprofit:"Nonprofit"};
+const BEN = {health:"Health insurance", retire:"Retirement plan", pto:"Paid time off", flex:"Flexible hours", parental:"Parental leave", equity:"Equity", fourday:"4-day week", discount:"Employee discount", stipend:"Home office stipend", perks:"Free meals or membership"};
+const INDUSTRIES = ["Software","Healthcare","Education","Nonprofit","Retail","Hospitality","Finance","Government","Fitness","Media","Energy","Construction","Manufacturing","Professional services","Personal services"];
+
+// [title, company, city|null, arrangement, schedule, hoursMin, hoursMax, payMin, payMax, basis, level, industry, size, postedDaysAgo, benefits, skills, interests, about, remoteRegion]
+const RAW = [
+ ["Customer Success Associate","Fernway",null,"remote","part-time",20,25,24,28,"hour","entry","Software","startup",1,["flex","pto"],["customer support","zendesk","onboarding","communication"],["writing"],"Help small businesses get set up on Fernway's scheduling software. You'll run onboarding calls, answer tickets and write help-center articles when you spot a pattern.","US only"],
+ ["Barista Trainer","Ridgeline Coffee Co.","Portland, OR","onsite","part-time",18,24,19,21,"hour","entry","Hospitality","small",2,["discount","flex","perks"],["training","customer service","cash handling"],["coffee","food","baking"],"Train new baristas across two cafés on espresso, milk work and service flow. Mornings and weekends.",""],
+ ["Bike Mechanic","Bridgetown Cycles","Portland, OR","onsite","part-time",20,30,22,26,"hour","mid","Retail","small",4,["discount","flex"],["bike repair","customer service","inventory"],["cycling","outdoors"],"Tune-ups, wheel builds and repair intake at a busy neighborhood shop. Bring your own tools or use ours.",""],
+ ["Senior Product Designer","Lumen Health",null,"remote","full-time",40,40,135000,160000,"year","senior","Healthcare","mid",3,["health","retire","pto","parental"],["figma","user research","design systems","accessibility"],[],"Lead design for the patient app used by 2 million people. Partner with clinicians and engineers on scheduling, messaging and billing.","US only"],
+ ["Data Analyst","Metro Region Transit","Portland, OR","hybrid","full-time",40,40,78000,92000,"year","mid","Government","enterprise",6,["health","retire","pto"],["sql","tableau","python","excel"],["cycling"],"Analyze ridership and on-time data to help plan routes and service changes. Two days a week in the downtown office.",""],
+ ["Library Program Assistant","Eastside Public Library","Portland, OR","onsite","part-time",16,20,21,23,"hour","entry","Government","nonprofit",5,["pto","retire"],["event planning","community outreach","communication"],["reading","crafts","teaching","volunteering"],"Run story times, craft nights and teen programs. Some evenings and Saturdays.",""],
+ ["Freelance Technical Writer","Quarry Labs",null,"remote","contract",10,20,55,70,"hour","mid","Software","startup",2,["flex"],["technical writing","markdown","api docs","git"],["writing"],"Write and maintain API guides for a developer platform. Work async; we review drafts weekly.","Anywhere"],
+ ["Marketing Coordinator","Trailhead Outfitters","Beaverton, OR","hybrid","full-time",40,40,58000,66000,"year","entry","Retail","mid",8,["health","retire","discount"],["social media","canva","email marketing","copywriting"],["hiking","outdoors","photography"],"Plan seasonal campaigns, run the newsletter and coordinate shoots for an outdoor gear retailer.",""],
+ ["Part-time Bookkeeper","Alder & Pine CPA","Lake Oswego, OR","hybrid","part-time",15,20,28,34,"hour","mid","Finance","small",3,["flex","pto"],["quickbooks","accounts payable","excel","reconciliation"],[],"Keep the books for a dozen small-business clients. Set your own hours; in office one day a week.",""],
+ ["Frontend Engineer","Kiln Software",null,"remote","full-time",32,32,120000,145000,"year","mid","Software","startup",1,["health","equity","fourday","stipend"],["react","typescript","css","accessibility"],[],"Build the editor for a ceramics-studio management tool. Four-day week, async-first team.","US & Canada"],
+ ["Garden Center Associate","Greenleaf Nursery","Hillsboro, OR","onsite","part-time",20,28,18.5,20,"hour","entry","Retail","small",7,["discount"],["plant care","customer service","merchandising"],["gardening","outdoors"],"Help customers pick plants, water and care for stock, and set up seasonal displays.",""],
+ ["Online Tutor, Math and Science","BrightPath Learning",null,"remote","part-time",8,15,30,40,"hour","entry","Education","startup",2,["flex"],["tutoring","algebra","chemistry","communication"],["teaching","puzzles","science"],"Tutor high-school students one-on-one in the evenings. You pick your weekly slots.","US only"],
+ ["Program Manager","Columbia River Watershed Council","Vancouver, WA","hybrid","full-time",40,40,72000,82000,"year","mid","Nonprofit","nonprofit",10,["health","pto","flex"],["grant writing","project management","stakeholder engagement"],["outdoors","environment","kayaking","volunteering"],"Run restoration projects and volunteer days along the river, and report to funders.",""],
+ ["UX Researcher (Contract)","Northbeam Insurance",null,"remote","contract",30,40,65,80,"hour","senior","Finance","enterprise",4,[],["user research","usability testing","survey design","figma"],[],"Six-month contract studying how small-business owners shop for insurance.","US only"],
+ ["Line Cook","Saltwater Kitchen","Portland, OR","onsite","part-time",24,30,20,23,"hour","entry","Hospitality","small",1,["perks","flex"],["food prep","knife skills","food safety"],["cooking","food","baking"],"Work the grill and garde-manger stations at a seafood restaurant. Evenings, tips shared.",""],
+ ["Communications Specialist","Oregon Arts Collective","Portland, OR","hybrid","part-time",20,20,27,31,"hour","mid","Nonprofit","nonprofit",9,["pto","flex"],["press releases","social media","wordpress","copywriting"],["art","music","writing","photography"],"Tell the stories of local artists through the website, newsletter and press.",""],
+ ["DevOps Engineer","Ironwood Cloud","Seattle, WA","hybrid","full-time",40,40,150000,175000,"year","senior","Software","mid",5,["health","retire","equity","parental"],["aws","terraform","kubernetes","ci/cd"],[],"Own the deploy pipeline and infrastructure for a fast-growing hosting company.",""],
+ ["Climbing Gym Front Desk","Basalt Bouldering","Portland, OR","onsite","part-time",12,20,18,19,"hour","entry","Fitness","small",3,["perks","flex"],["customer service","point of sale","safety checks"],["climbing","fitness"],"Check in climbers, run belay checks and help keep the gym running. Free membership.",""],
+ ["Virtual Executive Assistant","Harbor & Co.",null,"remote","part-time",20,30,26,32,"hour","mid","Professional services","small",2,["flex"],["calendar management","google workspace","travel planning","communication"],[],"Support two founders with scheduling, inbox triage and trip planning.","US, Pacific time"],
+ ["Junior Data Engineer","Prism Analytics","Austin, TX","onsite","full-time",40,40,85000,100000,"year","entry","Software","startup",12,["health","equity"],["python","sql","airflow"],[],"Build data pipelines for retail analytics clients. Mentorship from senior engineers.",""],
+ ["Sales Development Rep","Northstar Payments","Denver, CO","hybrid","full-time",40,40,60000,70000,"year","entry","Finance","mid",6,["health","retire","pto"],["salesforce","cold outreach","communication"],[],"Book meetings for account executives selling payment tools to restaurants. Base plus commission.",""],
+ ["Visitor Services Associate","Oregon Science Center","Portland, OR","onsite","part-time",16,24,19,21,"hour","entry","Education","nonprofit",4,["pto","perks"],["customer service","public speaking"],["science","teaching","kids"],"Greet visitors, run demos on the exhibit floor and help with school groups.",""],
+ ["Content Moderator","Murmur Social",null,"remote","part-time",20,20,21,24,"hour","entry","Software","mid",1,["pto"],["content policy","attention to detail","writing"],[],"Review reported posts against community guidelines. Wellness support included.","US only"],
+ ["Senior Accountant","Willamette Valley Foods","Salem, OR","onsite","full-time",40,40,80000,92000,"year","senior","Manufacturing","mid",15,["health","retire","pto"],["gaap","month-end close","netsuite","excel"],["food"],"Own month-end close and audit prep for a regional food producer.",""],
+ ["Yoga Instructor","Still Water Studio","Portland, OR","onsite","part-time",6,12,35,50,"hour","mid","Fitness","small",6,["flex","perks"],["yoga instruction","class planning"],["yoga","fitness","meditation"],"Teach vinyasa and gentle classes. 200-hour certification required.",""],
+ ["Project Coordinator","Cobalt Build Group",null,"remote","full-time",40,40,62000,70000,"year","entry","Construction","mid",3,["health","retire","pto","stipend"],["project management","smartsheet","scheduling","communication"],[],"Keep schedules, permits and subcontractor paperwork moving on commercial builds.","US only"],
+ ["Photographer's Assistant","Lightbox Studio","Portland, OR","onsite","temporary",10,20,22,25,"hour","entry","Media","small",2,["flex"],["lighting","adobe lightroom","photo editing"],["photography","art","film photography"],"Set lights, manage gear and cull images on product and portrait shoots through December.",""],
+ ["Product Manager","Tidewater Labs","New York, NY","hybrid","full-time",40,40,150000,180000,"year","senior","Software","mid",7,["health","retire","equity","parental"],["roadmapping","user research","sql","agile"],[],"Lead the mobile banking app's onboarding and growth roadmap.",""],
+ ["Grant Writer","Feeding Futures",null,"remote","part-time",15,20,32,38,"hour","mid","Nonprofit","nonprofit",5,["flex","pto"],["grant writing","research","budget narratives"],["writing","cooking","volunteering","community"],"Research funders and write proposals for a food-security nonprofit.","US only"],
+ ["Bookstore Associate","Inkwell Books","Portland, OR","onsite","part-time",15,25,18,20,"hour","entry","Retail","small",2,["discount"],["customer service","merchandising","point of sale"],["reading","writing"],"Shelve, recommend and ring up at an independent bookstore. Staff picks shelf is yours to curate.",""],
+ ["Social Media Manager","Outpost Gear",null,"remote","full-time",40,40,65000,78000,"year","mid","Retail","startup",4,["health","pto","stipend"],["social media","video editing","analytics","copywriting"],["hiking","photography","outdoors","cycling"],"Run Instagram and TikTok for a direct-to-consumer camping brand.","US only"],
+ ["Software Engineering Intern","Fieldnote","Portland, OR","hybrid","internship",30,40,25,25,"hour","entry","Software","startup",11,["flex"],["javascript","python","git"],[],"Ship real features on a note-taking app for field scientists. Twelve weeks starting in January.",""],
+ ["Dog Walker and Pet Sitter","Happy Tails PDX","Portland, OR","onsite","part-time",10,25,20,25,"hour","entry","Personal services","small",1,["flex"],["animal care","reliability","scheduling"],["animals","dogs","outdoors"],"Walk dogs in Southeast and Northeast Portland. Pick your routes and days.",""],
+ ["Bilingual Support Specialist","Ferry Health",null,"remote","full-time",40,40,50000,56000,"year","entry","Healthcare","mid",3,["health","retire","pto"],["customer support","spanish","crm"],[],"Help patients in English and Spanish with appointments, billing and app questions.","US only"],
+ ["Event Coordinator","Rose City Events","Portland, OR","hybrid","part-time",20,25,25,28,"hour","mid","Hospitality","small",8,["flex"],["event planning","vendor management","budgeting"],["music","food","community"],"Plan weddings and corporate events from first call to day-of.",""],
+ ["Lab Technician","Helix Bio","Hillsboro, OR","onsite","full-time",40,40,55000,63000,"year","entry","Healthcare","mid",9,["health","retire","pto"],["lab safety","pcr","data entry"],["science"],"Prepare samples and run assays in a diagnostics lab. Day shift.",""],
+ ["Video Editor","Narrow Gauge Films",null,"remote","contract",20,30,40,55,"hour","mid","Media","small",6,["flex"],["premiere pro","after effects","storytelling"],["film","music","photography"],"Cut short documentaries for nonprofit clients.","Anywhere"],
+ ["Sustainability Analyst","Greenline Utilities","Portland, OR","hybrid","full-time",40,40,82000,95000,"year","mid","Energy","enterprise",5,["health","retire","pto","parental"],["excel","carbon accounting","data analysis","reporting"],["environment","cycling","gardening"],"Track emissions and build the annual sustainability report.",""],
+ ["Weekend Farmers Market Manager","Northside Markets","Portland, OR","onsite","part-time",10,14,24,27,"hour","mid","Nonprofit","nonprofit",3,["perks"],["vendor management","event planning","customer service"],["food","gardening","community","cooking"],"Run Saturday market operations: vendor load-in, layout, volunteers and the info booth.",""],
+ ["Remote Copy Editor","Fieldstone Press",null,"remote","part-time",10,20,30,36,"hour","mid","Media","small",4,["flex"],["copy editing","ap style","proofreading"],["reading","writing"],"Edit nonfiction manuscripts and marketing copy for a small publisher.","Anywhere"]
+];
+
+const SAMPLE_JOBS = RAW.map((r,i) => ({
+  id:"ex"+(i+1), title:r[0], company:r[1], city:r[2], arrangement:r[3], schedule:r[4], hoursMin:r[5], hoursMax:r[6],
+  payMin:r[7], payMax:r[8], payBasis:r[9], level:r[10], industry:r[11], size:r[12], posted:r[13], benefits:r[14],
+  skills:r[15], interests:r[16], about:r[17], region:r[18], example:true
+}));
+
+/* ---------- Defaults ---------- */
+const EXAMPLE_PROFILE = {
+  isExample:true,
+  name:"Jordan Reyes", headline:"Customer support and community programs", email:"jordan@example.com", phone:"(503) 555-0142", links:"linkedin.com/in/jordanreyes-example",
+  home:"Portland, OR",
+  resume:`JORDAN REYES
+Portland, OR
+
+EXPERIENCE
+Customer Support Lead, Tandem Bikes Online (2021 to present)
+- Answer 60+ tickets a day in Zendesk; keep CSAT at 96%
+- Wrote 40 help-center articles that cut repeat tickets by 18%
+- Train and onboard new support hires
+
+Volunteer Program Coordinator, Southeast Community Library (2019 to 2021)
+- Ran monthly craft nights and a teen book club
+- Recruited and scheduled 25 volunteers
+
+EDUCATION
+B.A. Communications, Portland State University, 2019`,
+  skills:"customer support, zendesk, onboarding, communication, writing, event planning, training, community outreach, google workspace",
+  hobbies:"cycling, sourdough baking, film photography, volunteering at the library",
+  tone:"warm",
+  extra:""
+};
+const blankSearch = (name) => ({id:uid(), name, on:true, q:"", exclude:"", arr:[], sched:[], dist:15, pay:0, payBasis:"hour", maxHours:0, locs:[], levels:[], inds:[], sizes:[], posted:0, bens:[], minMatch:0, interests:false, fitBy:[], fitMode:"any", mine:false});
+const DEFAULT_SEARCHES = () => [
+  Object.assign(blankSearch("Remote"), {arr:["remote"]}),
+  Object.assign(blankSearch("Part-time nearby"), {arr:["onsite","hybrid"], sched:["part-time"], locs:["__home"], dist:15})
+];
+
+/* ---------- State ---------- */
+const S = {
+  view:"jobs", profile:{...EXAMPLE_PROFILE}, searches:DEFAULT_SEARCHES(), active:0, sort:"match",
+  selected:null, customJobs:[], apps:[], openApp:null,
+  gen:null, // {jobId, status, resume, cover, notes, tab, edit, error, ctl}
+  filtersOpen:false
+};
+
+function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,7) }
+const $ = (s, el=document) => el.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const allJobs = () => [...S.customJobs, ...SAMPLE_JOBS];
+const jobById = id => allJobs().find(j => j.id === id) || S.apps.find(a => a.job?.id === id)?.job;
+
+function toast(msg){
+  const t = document.createElement("div"); t.className = "toast"; t.textContent = msg; t.setAttribute("role","status");
+  document.body.appendChild(t); setTimeout(() => t.remove(), 2400);
+}
+
+/* ---------- Storage: private per-person db, else this browser ---------- */
+const Store = {
+  mode:"local", root:null, timers:{},
+  local(key, val){
+    try{
+      if (val === undefined) { const v = localStorage.getItem("carearz:"+key); return v ? JSON.parse(v) : null; }
+      localStorage.setItem("carearz:"+key, JSON.stringify(val));
+    }catch(e){ return null; }
+  },
+  async init(){
+    try{
+      if (!window.claude?.use) return;
+      const [db, user] = await Promise.all([claude.use("db"), claude.use("user")]);
+      if (!db || !user) return;
+      const id = await user.id();
+      if (!id) return;
+      this.root = db.doc("data/users/" + id + "/profile");
+      this.mode = "cloud";
+    }catch(e){ this.mode = "local"; }
+  },
+  async loadAll(){
+    if (this.mode !== "cloud") return null;
+    try{
+      const [p, a, j] = await Promise.all([this.root.get(), this.root.collection("apps").get(), this.root.collection("jobs").get()]);
+      return {main: p.exists ? p.data() : null, apps: a.docs.map(d => d.data()), jobs: j.docs.map(d => d.data())};
+    }catch(e){ this.mode = "local"; return null; }
+  },
+  saveMain(){
+    const data = {profile:S.profile, searches:S.searches, sort:S.sort};
+    this.local("main", data);
+    this.debounce("main", async () => { if (this.mode==="cloud") try{ await this.root.set(JSON.parse(JSON.stringify(data))); }catch(e){ console.warn(e); } });
+  },
+  putApp(app){
+    this.local("apps", S.apps);
+    if (this.mode==="cloud") this.debounce("app:"+app.id, async () => { try{ await this.root.collection("apps").doc(app.id).set(JSON.parse(JSON.stringify(app))); }catch(e){ console.warn(e); toast("Couldn't save that application to your account"); } }, 400);
+  },
+  delApp(id){
+    this.local("apps", S.apps);
+    if (this.mode==="cloud") this.root.collection("apps").doc(id).delete().catch(console.warn);
+  },
+  putJob(job){
+    this.local("jobs", S.customJobs);
+    if (this.mode==="cloud") this.root.collection("jobs").doc(job.id).set(JSON.parse(JSON.stringify(job))).catch(console.warn);
+  },
+  delJob(id){
+    this.local("jobs", S.customJobs);
+    if (this.mode==="cloud") this.root.collection("jobs").doc(id).delete().catch(console.warn);
+  },
+  debounce(key, fn, ms=700){ clearTimeout(this.timers[key]); this.timers[key] = setTimeout(fn, ms); }
+};
+
+
+/* ---------- Claude access: inside Claude use the page's own capabilities; elsewhere (e.g. GitHub Pages) use your own API key ---------- */
+const API_MODEL = "claude-sonnet-5-5";
+const Caps = {native:null, key(){ try{ return localStorage.getItem("carearz:apikey") || ""; }catch(_){ return ""; } }};
+async function nativeSample(){
+  if (Caps.native === null) Caps.native = window.claude?.use ? await claude.use("sample") : false;
+  return Caps.native || null;
+}
+function apiSample(){
+  const key = Caps.key();
+  if (!key) return null;
+  const call = async (input, opts = {}) => {
+    let res;
+    try{
+      res = await fetch("https://api.anthropic.com/v1/messages", {
+        method:"POST", signal:opts.signal,
+        headers:{"content-type":"application/json","x-api-key":key,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
+        body:JSON.stringify({model:API_MODEL, max_tokens:8000, stream:true, messages:[{role:"user", content:typeof input === "string" ? input : input.map(m => m.content).join("\n\n")}]})
+      });
+    }catch(e){ throw {code: e?.name === "AbortError" ? "cancelled" : "upstream_error", message:String(e)}; }
+    if (!res.ok){
+      const body = await res.text().catch(() => "");
+      throw {code: res.status === 401 || res.status === 403 ? "bad_key" : res.status === 429 ? "rate_limited" : "upstream_error", message:body};
+    }
+    const reader = res.body.getReader(), dec = new TextDecoder();
+    let buf = "", text = "", truncated = false;
+    try{
+      for (;;){
+        const {done, value} = await reader.read();
+        if (done) break;
+        buf += dec.decode(value, {stream:true});
+        const lines = buf.split("\n"); buf = lines.pop();
+        for (const line of lines){
+          if (!line.startsWith("data:")) continue;
+          let ev; try{ ev = JSON.parse(line.slice(5)); }catch(_){ continue; }
+          if (ev.type === "content_block_delta" && ev.delta?.type === "text_delta"){
+            text += ev.delta.text;
+            try{ opts.onText?.({text, delta:ev.delta.text}); }catch(_){}
+          } else if (ev.type === "message_delta" && ev.delta?.stop_reason === "max_tokens") truncated = true;
+          else if (ev.type === "error") throw {code:"upstream_error", message:ev.error?.message || "", text};
+        }
+      }
+    }catch(e){
+      if (e?.code) throw e;
+      throw {code: e?.name === "AbortError" ? "cancelled" : "upstream_error", message:String(e), text};
+    }
+    return {text, truncated};
+  };
+  call.json = async (input, opts) => {
+    const {text} = await call(input + "\n\nReply with only the JSON value, no other text.", opts);
+    const m = text.match(/```(?:json)?\s*([\s\S]*?)```/);
+    const src = m ? m[1] : text.slice(Math.min(...["{","["].map(c => { const i = text.indexOf(c); return i < 0 ? 1e9 : i; })));
+    try{ return JSON.parse(src.trim().replace(/[^}\]]*$/, "")); }catch(_){ throw {code:"invalid_json", message:"Could not read the reply", text}; }
+  };
+  return call;
+}
+async function getSample(){ return (await nativeSample()) || apiSample(); }
+async function getDownloads(){
+  const d = window.claude?.use ? await claude.use("downloads") : null;
+  if (d) return d;
+  return {save: async ({filename, data}) => {
+    const blob = data instanceof Blob ? data : new Blob([data], {type:"text/plain;charset=utf-8"});
+    const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = filename;
+    document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+    return {status:"saved"};
+  }};
+}
+const NO_CLAUDE = "To generate documents here, add your Claude API key under My resume. Inside the Claude app this works without a key.";
+
+// Older saved searches used a skill slider plus a hobbies checkbox; fold them into "match on"
+function migrateSearch(s){
+  const out = {...blankSearch(s.name||"Search"), ...s};
+  if (!Array.isArray(s.fitBy)){
+    out.fitBy = [];
+    if (s.minMatch) out.fitBy.push("resume");
+    if (s.interests) out.fitBy.push("hobbies");
+    out.fitMode = "all";
+  }
+  if (!Array.isArray(s.locs)){ out.locs = s.dist ? ["__home"] : []; out.dist = s.dist || 15; }
+  return out;
+}
+function applyLoaded(main, apps, jobs){
+  if (main){
+    if (main.profile) S.profile = {...EXAMPLE_PROFILE, ...main.profile};
+    if (Array.isArray(main.searches) && main.searches.length) S.searches = main.searches.map(migrateSearch);
+    if (main.sort) S.sort = main.sort;
+  }
+  if (Array.isArray(apps)) S.apps = apps.filter(a => a && a.id);
+  if (Array.isArray(jobs)) S.customJobs = jobs.filter(j => j && j.id);
+}
+
+async function renderKeyBox(){
+  const box = $("#apikey-box"); if (!box) return;
+  box.hidden = !!(await nativeSample());
+  $("#apikey-state").textContent = Caps.key() ? "Key saved in this browser" : "No key saved";
+}
+function renderSaveState(){
+  const el = $("#save-state");
+  el.classList.toggle("cloud", Store.mode === "cloud");
+  el.querySelector("span").textContent = Store.mode === "cloud" ? "Saved to your account" : "Saved in this browser";
+  const pw = $("#profile-where");
+  if (pw) pw.textContent = Store.mode === "cloud"
+    ? "Your resume, searches and applications are saved privately to your Claude account. Nobody else who opens this page can see them."
+    : "Your resume, searches and applications are saved in this browser only.";
+}
+
+/* ---------- Matching ---------- */
+const tokens = s => String(s||"").toLowerCase().split(/[,;\n]+/).map(x => x.trim()).filter(Boolean);
+const soft = (a, b) => a === b || (a.length > 3 && b.includes(a)) || (b.length > 3 && a.includes(b));
+function skillMatch(job){
+  const mine = tokens(S.profile.skills);
+  if (!job.skills?.length) return {pct:0, hits:[]};
+  const hits = job.skills.filter(s => mine.some(m => soft(m, s.toLowerCase())));
+  return {pct: Math.round(hits.length / job.skills.length * 100), hits};
+}
+const HOBBY_SYNONYMS = {
+  cycl:["bike","bicycl"], bik:["cycl","bicycl"], photograph:["photo","camera","lightroom","shoot"], photo:["camera","lightroom"],
+  read:["book","library","librar"], book:["read","library"], writ:["writer","editor","copy","content"], bak:["bread","pastry","bakery"],
+  cook:["kitchen","chef","food","culinary"], food:["kitchen","cook","culinary","restaurant"], garden:["plant","nursery","farm"],
+  hik:["outdoor","trail"], climb:["boulder","gym"], yoga:["fitness","wellness"], run:["fitness","athlet"], music:["concert","audio","band"],
+  art:["artist","gallery","design","creative"], film:["video","documentar","movie"], dog:["pet","animal"], animal:["pet","dog","veterin"],
+  volunteer:["nonprofit","outreach","volunteer"], teach:["tutor","educat","school","student"], game:["gaming","esports"],
+  travel:["tourism","hospitality"], coffee:["barista","cafe"], kayak:["river","paddl","outdoor"], environment:["sustainab","climate","conservation"]
+};
+const STOP = new Set(["with","that","from","into","about","their","other","things","stuff","love","like","enjoy","doing"]);
+function hobbyStems(h){
+  return h.toLowerCase().split(/[^a-z]+/).filter(w => w.length > 3 && !STOP.has(w))
+    .map(w => w.length > 6 ? w.replace(/(ing|ers|er|y|s)$/,"") : w.replace(/s$/,""));
+}
+function interestHits(job){
+  const hay = [job.title, job.about, job.industry, ...(job.skills||[]), ...(job.interests||[]), job.description||""].join(" ").toLowerCase();
+  const hits = [];
+  for (const h of tokens(S.profile.hobbies)){
+    const stems = hobbyStems(h);
+    const words = stems.flatMap(st => [st, ...Object.entries(HOBBY_SYNONYMS).filter(([k]) => st.startsWith(k) || k.startsWith(st)).flatMap(([,v]) => v)]);
+    if (words.some(w => w.length > 2 && new RegExp("\\b" + w).test(hay))) hits.push(h.length > 26 ? h.slice(0, 24) + "…" : h);
+  }
+  return hits;
+}
+function fitsSearch(j, s){
+  if (!s.fitBy.length) return true;
+  const tests = s.fitBy.map(k => k === "resume" ? skillMatch(j).pct >= Math.max(s.minMatch, 1) : interestHits(j).length > 0);
+  return s.fitMode === "all" ? tests.every(Boolean) : tests.some(Boolean);
+}
+const locCity = l => l === "__home" ? S.profile.home : l;
+const locName = l => l === "__home" ? "Home (" + S.profile.home.replace(/,.*$/, "") + ")" : l;
+function milesFromHome(job){ return job.city ? milesBetween(S.profile.home, job.city) : null; }
+function milesBetween(c1, c2){
+  const a = CITIES[c1], b = CITIES[c2];
+  if (!a || !b) return null;
+  const R = 3958.8, toR = x => x*Math.PI/180;
+  const dLat = toR(b[0]-a[0]), dLng = toR(b[1]-a[1]);
+  const h = Math.sin(dLat/2)**2 + Math.cos(toR(a[0]))*Math.cos(toR(b[0]))*Math.sin(dLng/2)**2;
+  return 2*R*Math.asin(Math.sqrt(h));
+}
+const hourly = j => j.payBasis === "hour" ? j.payMax : j.payMax / 2080;
+const annual = j => j.payBasis === "year" ? j.payMax : j.payMax * 2080;
+
+function matchesSearch(j, s){
+  if (s.mine && !j.custom) return false;
+  if (s.arr.length && !s.arr.includes(j.arrangement)) return false;
+  if (s.sched.length && !s.sched.includes(j.schedule)) return false;
+  if (s.levels.length && !s.levels.includes(j.level)) return false;
+  if (s.inds.length && !s.inds.includes(j.industry)) return false;
+  if (s.sizes.length && !s.sizes.includes(j.size)) return false;
+  if (s.posted && j.posted > s.posted) return false;
+  if (s.maxHours && j.hoursMin > s.maxHours) return false;
+  if (s.bens.length && !s.bens.every(b => (j.benefits||[]).includes(b))) return false;
+  if (s.pay){
+    if (!j.payMax) return false;
+    const v = s.payBasis === "hour" ? hourly(j) : annual(j);
+    if (v < s.pay) return false;
+  }
+  if (s.locs.length && j.arrangement !== "remote"){
+    if (!j.city) return false;
+    const near = s.locs.map(locCity).some(c => {
+      if (c === j.city) return true;
+      const m = milesBetween(c, j.city);
+      return s.dist > 0 && m !== null && m <= s.dist;
+    });
+    if (!near) return false;
+  }
+  if (!fitsSearch(j, s)) return false;
+  const hay = [j.title, j.company, j.about, j.industry, ...(j.skills||[]), j.description||""].join(" ").toLowerCase();
+  if (s.q){
+    const terms = s.q.toLowerCase().split(/\s+/).filter(Boolean);
+    if (!terms.every(t => hay.includes(t))) return false;
+  }
+  if (s.exclude){
+    const ex = s.exclude.toLowerCase().split(/[,\s]+/).filter(Boolean);
+    if (ex.some(t => hay.includes(t))) return false;
+  }
+  return true;
+}
+
+function results(){
+  const on = S.searches.filter(s => s.on);
+  const out = [];
+  for (const j of allJobs()){
+    const via = on.filter(s => matchesSearch(j, s)).map(s => s.name);
+    if (via.length) out.push({j, via, m:skillMatch(j), h:Math.min(interestHits(j).length, 2), mi:milesFromHome(j)});
+  }
+  const by = {
+    match:(a,b) => (b.m.pct + 20*b.h) - (a.m.pct + 20*a.h) || a.j.posted - b.j.posted,
+    new:(a,b) => a.j.posted - b.j.posted,
+    pay:(a,b) => hourly(b.j) - hourly(a.j),
+    near:(a,b) => (a.mi ?? (a.j.arrangement==="remote" ? -1 : 1e9)) - (b.mi ?? (b.j.arrangement==="remote" ? -1 : 1e9))
+  };
+  return out.sort(by[S.sort] || by.match);
+}
+
+/* ---------- Formatting ---------- */
+const money = n => n >= 1000 ? "$" + Math.round(n/1000) + "k" : "$" + (Number.isInteger(n) ? n : n.toFixed(2));
+function payText(j){
+  if (!j.payMax) return "Pay not listed";
+  const unit = j.payBasis === "hour" ? "/hr" : "/yr";
+  return (j.payMin && j.payMin !== j.payMax ? money(j.payMin) + "–" : "") + money(j.payMax) + unit;
+}
+function whereText(j, mi){
+  if (j.arrangement === "remote") return "Remote" + (j.region ? " · " + j.region : "");
+  const d = mi != null ? (mi < 1 ? " · <1 mi" : ` · ${mi < 10 ? mi.toFixed(1) : Math.round(mi)} mi`) : "";
+  return (j.city || "Location not listed") + d;
+}
+const postedText = d => d === 0 ? "today" : d === 1 ? "1 day ago" : d + " days ago";
+const hoursText = j => j.hoursMin ? (j.hoursMin === j.hoursMax ? j.hoursMin : j.hoursMin + "–" + j.hoursMax) + " hrs/wk" : "";
+
+/* ---------- Filters pane ---------- */
+function chipGroup(field, map, s){
+  return `<div class="chips">${Object.entries(map).map(([k,v]) =>
+    `<button type="button" class="chip" data-chip="${field}" data-val="${esc(k)}" aria-pressed="${s[field].includes(k)}">${esc(v)}</button>`).join("")}</div>`;
+}
+function renderFilters(){
+  const s = S.searches[S.active];
+  const counts = S.searches.map(x => allJobs().filter(j => matchesSearch(j, x)).length);
+  const cityOpts = Object.keys(CITIES).map(c => `<option ${c===S.profile.home?"selected":""}>${esc(c)}</option>`).join("");
+  $("#filters").innerHTML = `
+    <div class="searches">
+      <div class="label">Searches · results show jobs matching any of them</div>
+      <div class="search-tabs" role="tablist">
+        ${S.searches.map((x,i) => `${i ? '<span class="or">OR</span>' : ""}<span class="stab ${x.on?"":"off"}" role="tab" tabindex="0" data-stab="${i}" aria-selected="${i===S.active}">${esc(x.name)} <span class="ct">${counts[i]}</span></span>`).join("")}
+        <button type="button" class="btn ghost small" id="add-search">+ Or…</button>
+      </div>
+      <div class="search-name">
+        <input type="text" id="s-name" value="${esc(s.name)}" aria-label="Search name">
+        <label class="toggle" title="Include this search in results" style="flex:none"><input type="checkbox" id="s-on" ${s.on?"checked":""}> On</label>
+        ${S.searches.length > 1 ? `<button type="button" class="btn ghost small danger" id="del-search" title="Delete this search">Delete</button>` : ""}
+      </div>
+      <p class="hint">Everything below applies to <b>${esc(s.name)}</b>. Within a search, all filters must match.</p>
+    </div>
+    <div class="fsec">
+      <label class="label" for="s-q">Keywords</label>
+      <input type="text" id="s-q" placeholder="e.g. writing support" value="${esc(s.q)}">
+      <input type="text" id="s-ex" placeholder="Exclude words, e.g. sales, senior" value="${esc(s.exclude)}" aria-label="Exclude words">
+    </div>
+    <div class="fsec">
+      <div class="label">Match my profile</div>
+      <div class="chips">
+        <button type="button" class="chip" data-chip="fitBy" data-val="resume" aria-pressed="${s.fitBy.includes("resume")}">My resume</button>
+        <button type="button" class="chip" data-chip="fitBy" data-val="hobbies" aria-pressed="${s.fitBy.includes("hobbies")}">My hobbies</button>
+      </div>
+      ${s.fitBy.length === 2 ? `<div class="row"><span class="muted" style="font-size:13px">Show jobs that match</span>
+        <div class="seg"><button type="button" data-fitmode="any" aria-pressed="${s.fitMode==="any"}">either</button><button type="button" data-fitmode="all" aria-pressed="${s.fitMode==="all"}">both</button></div></div>` : ""}
+      ${s.fitBy.includes("resume") ? `<label for="s-match" class="row" style="justify-content:space-between;font-size:13.5px"><span>Resume skill match at least</span><b class="num" id="s-match-val">${Math.max(s.minMatch,1) === 1 ? "any" : s.minMatch + "%"}</b></label>
+      <input type="range" id="s-match" min="0" max="100" step="10" value="${s.minMatch}">` : ""}
+      <p class="hint">${!s.fitBy.length ? "Off: jobs aren't filtered by your profile." : s.fitBy.length === 1 ? (s.fitBy[0] === "resume" ? "Only jobs that use skills from your resume." : "Only jobs that relate to a hobby on your profile.") : s.fitMode === "any" ? "Jobs that use your skills, or relate to a hobby, or both." : "Only jobs that use your skills and also relate to a hobby."} Edit both under My resume.</p>
+      <label class="toggle"><input type="checkbox" id="s-mine" ${s.mine?"checked":""}> Only jobs I added</label>
+    </div>
+    <div class="fsec"><div class="label">Where you work</div>${chipGroup("arr", ARR, s)}</div>
+    <div class="fsec"><div class="label">Schedule</div>${chipGroup("sched", SCHED, s)}
+      <div class="row"><label for="s-hours" class="muted" style="font-size:13px;flex:none">Max hours/week</label>
+      <select id="s-hours">${[0,10,15,20,25,30,40].map(h => `<option value="${h}" ${s.maxHours==h?"selected":""}>${h?h+" or fewer":"Any"}</option>`).join("")}</select></div>
+    </div>
+    <div class="fsec">
+      <div class="label">Locations</div>
+      ${s.locs.length ? `<div class="chips">${s.locs.map(l => `<span class="chip" style="cursor:default;display:inline-flex;gap:4px;align-items:center;background:var(--ink);border-color:var(--ink);color:var(--bg)">${esc(locName(l))}<button type="button" data-rmloc="${esc(l)}" aria-label="Remove ${esc(locName(l))}" style="border:0;background:none;color:inherit;cursor:pointer;padding:0 2px;font-size:15px;line-height:1">×</button></span>`).join("")}</div>` : `<p class="hint">Anywhere. Add one or more places to limit on-site and hybrid jobs.</p>`}
+      <select id="s-addloc" aria-label="Add a location"><option value="">+ Add a location…</option>${["__home", ...Object.keys(CITIES)].filter(c => !s.locs.includes(c) && !(c !== "__home" && s.locs.includes("__home") && c === S.profile.home)).map(c => `<option value="${esc(c)}">${esc(locName(c))}</option>`).join("")}</select>
+      ${s.locs.length ? `<select id="s-dist" aria-label="Distance">${[0,5,10,15,25,50,100].map(d => `<option value="${d}" ${s.dist==d?"selected":""}>${d ? "Within " + d + " mi of " + (s.locs.length > 1 ? "any of them" : "it") : "In " + (s.locs.length > 1 ? "those cities" : "that city") + " only"}</option>`).join("")}</select>` : ""}
+      <label class="row" style="font-size:13px"><span class="muted" style="flex:none">Home city</span><select id="home">${cityOpts}</select></label>
+      <p class="hint">Locations only limit on-site and hybrid jobs. Remote jobs always pass.</p>
+    </div>
+    <div class="fsec">
+      <div class="label">Minimum pay</div>
+      <div class="row">
+        <input type="number" id="s-pay" min="0" step="${s.payBasis==="hour"?1:5000}" value="${s.pay||""}" placeholder="${s.payBasis==="hour"?"e.g. 22":"e.g. 60000"}" class="num">
+        <div class="seg"><button type="button" data-basis="hour" aria-pressed="${s.payBasis==="hour"}">/hr</button><button type="button" data-basis="year" aria-pressed="${s.payBasis==="year"}">/yr</button></div>
+      </div>
+      <p class="hint">Hourly and yearly pay are compared at 2,080 hours a year.</p>
+    </div>
+    <div class="fsec"><div class="label">Experience level</div>${chipGroup("levels", LEVEL, s)}</div>
+    <div class="fsec">
+      <div class="label">Posted</div>
+      <select id="s-posted">${[[0,"Any time"],[1,"Past day"],[3,"Past 3 days"],[7,"Past week"],[14,"Past 2 weeks"],[30,"Past month"]].map(([v,t]) => `<option value="${v}" ${s.posted==v?"selected":""}>${t}</option>`).join("")}</select>
+    </div>
+    <div class="fsec"><div class="label">Must offer</div>${chipGroup("bens", BEN, s)}</div>
+    <div class="fsec"><div class="label">Industry</div>${chipGroup("inds", Object.fromEntries(INDUSTRIES.map(x => [x,x])), s)}</div>
+    <div class="fsec"><div class="label">Employer type</div>${chipGroup("sizes", SIZE, s)}
+      <button type="button" class="btn ghost small" id="reset-search" style="justify-self:start">Clear this search's filters</button>
+    </div>`;
+}
+
+function onFilterChange(rerenderFilters){
+  Store.saveMain();
+  if (rerenderFilters) renderFilters(); else updateCounts();
+  renderList();
+}
+function updateCounts(){
+  S.searches.forEach((x,i) => {
+    const el = $(`[data-stab="${i}"] .ct`);
+    if (el) el.textContent = allJobs().filter(j => matchesSearch(j, x)).length;
+  });
+}
+
+function bindFilters(){
+  const f = $("#filters");
+  f.addEventListener("click", e => {
+    const s = S.searches[S.active];
+    const chip = e.target.closest("[data-chip]");
+    if (chip){
+      const arr = s[chip.dataset.chip], v = chip.dataset.val, i = arr.indexOf(v);
+      i >= 0 ? arr.splice(i,1) : arr.push(v);
+      chip.setAttribute("aria-pressed", i < 0);
+      return onFilterChange(chip.dataset.chip === "fitBy");
+    }
+    const tab = e.target.closest("[data-stab]");
+    if (tab){ S.active = +tab.dataset.stab; renderFilters(); return; }
+    const rm = e.target.closest("[data-rmloc]");
+    if (rm){ s.locs = s.locs.filter(l => l !== rm.dataset.rmloc); return onFilterChange(true); }
+    const fm = e.target.closest("[data-fitmode]");
+    if (fm){ s.fitMode = fm.dataset.fitmode; return onFilterChange(true); }
+    const basis = e.target.closest("[data-basis]");
+    if (basis){
+      if (s.payBasis !== basis.dataset.basis){
+        s.pay = s.pay ? (basis.dataset.basis === "year" ? Math.round(s.pay*2080/1000)*1000 : Math.round(s.pay/2080)) : 0;
+        s.payBasis = basis.dataset.basis;
+      }
+      return onFilterChange(true);
+    }
+    if (e.target.id === "add-search"){
+      S.searches.push(blankSearch("Search " + (S.searches.length + 1)));
+      S.active = S.searches.length - 1;
+      onFilterChange(true); $("#s-name")?.select(); return;
+    }
+    if (e.target.id === "del-search"){
+      S.searches.splice(S.active, 1); S.active = Math.max(0, S.active - 1);
+      return onFilterChange(true);
+    }
+    if (e.target.id === "reset-search"){
+      const s0 = S.searches[S.active];
+      S.searches[S.active] = {...blankSearch(s0.name), id:s0.id, on:s0.on};
+      return onFilterChange(true);
+    }
+  });
+  f.addEventListener("keydown", e => {
+    const tab = e.target.closest("[data-stab]");
+    if (tab && (e.key === "Enter" || e.key === " ")){ e.preventDefault(); S.active = +tab.dataset.stab; renderFilters(); }
+  });
+  f.addEventListener("input", e => {
+    const s = S.searches[S.active], id = e.target.id, v = e.target.value;
+    if (id === "s-name"){ s.name = v || "Untitled"; const t = $(`[data-stab="${S.active}"]`); if (t) t.firstChild.textContent = s.name + " "; Store.saveMain(); renderList(); return; }
+    if (id === "s-q"){ s.q = v; return onFilterChange(false); }
+    if (id === "s-ex"){ s.exclude = v; return onFilterChange(false); }
+    if (id === "s-pay"){ s.pay = +v || 0; return onFilterChange(false); }
+    if (id === "s-match"){ s.minMatch = +v; $("#s-match-val").textContent = +v ? v + "%" : "any"; return onFilterChange(false); }
+  });
+  f.addEventListener("change", e => {
+    const s = S.searches[S.active], id = e.target.id, v = e.target.value;
+    if (id === "s-on"){ s.on = e.target.checked; return onFilterChange(true); }
+    if (id === "s-hours"){ s.maxHours = +v; return onFilterChange(false); }
+    if (id === "s-dist"){ s.dist = +v; return onFilterChange(false); }
+    if (id === "s-addloc"){ if (v && !s.locs.includes(v)) s.locs.push(v); return onFilterChange(true); }
+    if (id === "s-posted"){ s.posted = +v; return onFilterChange(false); }
+    if (id === "s-mine"){ s.mine = e.target.checked; return onFilterChange(false); }
+    if (id === "home"){ S.profile.home = v; onFilterChange(true); renderDetail(); return; }
+  });
+}
+
+/* ---------- Results list ---------- */
+function describeSearch(s){
+  const parts = [];
+  if (s.arr.length) parts.push(s.arr.map(a => ARR[a]).join(" or "));
+  if (s.sched.length) parts.push(s.sched.map(a => SCHED[a]).join(" or "));
+  if (s.maxHours) parts.push("≤" + s.maxHours + " hrs/wk");
+  if (s.locs.length) parts.push((s.dist ? "within " + s.dist + " mi of " : "in ") + s.locs.map(locName).join(" or "));
+  if (s.pay) parts.push(money(s.pay) + (s.payBasis === "hour" ? "/hr+" : "/yr+"));
+  if (s.fitBy.length){
+    const r = "resume" + (s.minMatch ? " " + s.minMatch + "%+" : ""), h = "hobbies";
+    parts.push("matches " + (s.fitBy.length === 2 ? r + (s.fitMode === "any" ? " or " : " and ") + h : s.fitBy[0] === "resume" ? r : h));
+  }
+  if (s.levels.length) parts.push(s.levels.map(l => LEVEL[l]).join("/"));
+  if (s.posted) parts.push("past " + s.posted + "d");
+  if (s.bens.length) parts.push(s.bens.length + " benefit" + (s.bens.length > 1 ? "s" : ""));
+  if (s.inds.length) parts.push(s.inds.length === 1 ? s.inds[0] : s.inds.length + " industries");
+  if (s.sizes.length) parts.push(s.sizes.map(z => SIZE[z]).join("/"));
+  if (s.q) parts.push("“" + s.q + "”");
+  if (s.mine) parts.push("added by me");
+  return parts.join(" · ") || "all jobs";
+}
+function renderList(){
+  const rs = results();
+  $("#result-title").textContent = rs.length + (rs.length === 1 ? " job" : " jobs");
+  const on = S.searches.filter(s => s.on);
+  $("#summary").innerHTML = on.length
+    ? on.map((s,i) => `${i ? '<span class="or">OR</span>' : ""}<span class="sum-pill"><b>${esc(s.name)}</b>: ${esc(describeSearch(s))}</span>`).join("")
+    : `<span class="sum-pill">Every search is switched off. Turn one on in the filters.</span>`;
+  if (!rs.length){
+    $("#cards").innerHTML = `<div class="empty"><b>No jobs match.</b><br>Loosen a filter, add a location or raise the distance, or add an “Or…” search for another kind of job.</div>`;
+    return;
+  }
+  $("#cards").innerHTML = rs.map(({j, via, m, mi}) => {
+    const fits = interestHits(j);
+    return `<button type="button" class="card" data-job="${esc(j.id)}" aria-current="${S.selected===j.id}">
+      <div class="card-top">
+        <div style="min-width:0"><h3>${esc(j.title)}</h3><div class="co">${esc(j.company)}</div></div>
+        <div class="match ${m.pct >= 50 ? "hi" : ""}" title="Share of this job's skills found in your resume">${m.pct}%<small>match</small></div>
+      </div>
+      <div class="facts"><span>${esc(whereText(j, mi))}</span><span class="pay">${esc(payText(j))}</span>${hoursText(j) ? `<span>${esc(hoursText(j))}</span>` : ""}<span>${esc(postedText(j.posted))}</span></div>
+      <div class="tagrow">
+        <span class="tag ${j.arrangement==="remote"?"arr-remote":""}">${ARR[j.arrangement]}</span>
+        <span class="tag ${j.schedule!=="full-time"?"sched":""}">${SCHED[j.schedule]}</span>
+        ${fits.length ? `<span class="tag fit">Fits your ${esc(fits.slice(0,2).join(", "))}</span>` : ""}
+        ${j.custom ? `<span class="tag mine">Added by you</span>` : `<span class="tag">example</span>`}
+        ${on.length > 1 ? via.map(v => `<span class="tag via">${esc(v)}</span>`).join("") : ""}
+      </div>
+    </button>`;
+  }).join("");
+}
+
+/* ---------- Detail + tailoring ---------- */
+function renderDetail(){
+  const pane = $("#detail");
+  const j = S.selected && jobById(S.selected);
+  pane.classList.toggle("open", !!j);
+  if (!j){
+    pane.innerHTML = `<div class="d-body"><div class="label">Job detail</div><p class="muted">Pick a job on the left to see the details and generate a resume and cover letter tailored to it.</p></div>`;
+    return;
+  }
+  const m = skillMatch(j), mi = milesFromHome(j), fits = interestHits(j);
+  const g = S.gen && S.gen.jobId === j.id ? S.gen : null;
+  const app = S.apps.find(a => a.job?.id === j.id);
+  pane.innerHTML = `
+    <div class="d-head">
+      <button type="button" class="btn ghost small d-back" id="d-back">← Back to jobs</button>
+      <div class="label">${esc(j.company)}${j.custom ? " · added by you" : " · example listing"}</div>
+      <h2>${esc(j.title)}</h2>
+      <div class="facts"><span>${esc(whereText(j, mi))}</span><span class="pay">${esc(payText(j))}</span><span>Posted ${esc(postedText(j.posted))}</span></div>
+      ${j.url ? `<a href="${esc(j.url)}" target="_blank" rel="noopener" style="color:var(--accent);font-size:13.5px">Open original posting ↗</a>` : ""}
+    </div>
+    <div class="d-body">
+      <dl class="factgrid" style="margin:0">
+        <div><dt>Arrangement</dt><dd>${ARR[j.arrangement]}</dd></div>
+        <div><dt>Schedule</dt><dd>${SCHED[j.schedule]}${hoursText(j) ? `, ${esc(hoursText(j))}` : ""}</dd></div>
+        <div><dt>Level</dt><dd>${LEVEL[j.level] || "Not listed"}</dd></div>
+        <div><dt>Industry</dt><dd>${esc(j.industry || "Not listed")}</dd></div>
+        <div><dt>Employer</dt><dd>${SIZE[j.size] || "Not listed"}</dd></div>
+        <div><dt>Your match</dt><dd class="num">${m.pct}%</dd></div>
+      </dl>
+      <div style="display:grid;gap:6px"><div class="label">About the role</div><p>${esc(j.about)}</p>
+        ${j.description ? `<details><summary class="muted" style="cursor:pointer;font-size:13.5px">Full posting text</summary><p style="white-space:pre-wrap;margin-top:8px;font-size:14px">${esc(j.description)}</p></details>` : ""}
+      </div>
+      <div style="display:grid;gap:6px"><div class="label">Skills they want · highlighted ones are on your resume</div>
+        <div class="tagrow">${(j.skills||[]).map(s => `<span class="tag ${m.hits.includes(s) ? "skill-on" : ""}">${esc(s)}</span>`).join("") || '<span class="muted">None listed</span>'}</div>
+      </div>
+      ${fits.length ? `<div class="warnbox" style="background:var(--mark-soft)">This role connects to your interest in <b>${esc(fits.join(", "))}</b>. Tailoring can mention it.</div>` : ""}
+      ${(j.benefits||[]).length ? `<div style="display:grid;gap:6px"><div class="label">Benefits</div><div class="tagrow">${j.benefits.map(b => `<span class="tag">${esc(BEN[b]||b)}</span>`).join("")}</div></div>` : ""}
+      ${j.custom ? `<div><button type="button" class="btn ghost small danger" id="del-job">Remove this job</button></div>` : ""}
+    </div>
+    <div class="tailor" id="tailor">
+      <h3>Tailor my application</h3>
+      ${S.profile.isExample ? `<div class="warnbox">You're using the example resume for Jordan Reyes. <button type="button" class="btn small" data-goto="profile">Add your resume</button></div>` : ""}
+      <div class="opts">
+        <label>Cover letter tone
+          <select id="g-tone">${[["warm","Warm and personable"],["professional","Polished and formal"],["direct","Short and direct"],["enthusiastic","Energetic"]].map(([v,t]) => `<option value="${v}" ${S.profile.tone===v?"selected":""}>${t}</option>`).join("")}</select>
+        </label>
+        <label>Resume length
+          <select id="g-len"><option value="one">One page</option><option value="two">Up to two pages</option></select>
+        </label>
+      </div>
+      <label class="toggle"><input type="checkbox" id="g-hobbies" ${fits.length ? "checked" : ""}> Include an Interests line with my hobbies${fits.length ? " (recommended for this job)" : ""}</label>
+      <label class="field" style="gap:4px"><span style="font-size:13px;font-weight:500;color:var(--muted)">Anything to emphasize? (optional)</span>
+        <textarea id="g-notes" rows="2" placeholder="e.g. I can start in two weeks; play up my volunteer work"></textarea></label>
+      <div class="doc-actions">
+        ${g && g.status === "running"
+          ? `<button type="button" class="btn" id="g-stop">Stop</button><span class="muted" style="font-size:13.5px">Writing your documents…</span>`
+          : `<button type="button" class="btn primary" id="g-go">${g || app ? "Regenerate" : "Generate resume and cover letter"}</button>
+             ${app ? `<span class="muted" style="font-size:13px">Saved in Applications</span>` : ""}`}
+      </div>
+      <div id="g-out"></div>
+    </div>`;
+  if (!g && app) S.gen = {jobId:j.id, status:"done", resume:app.resume, cover:app.cover, notes:app.notes||"", tab:"resume", edit:false, appId:app.id};
+  renderGenOut();
+}
+
+const DOCS = [["resume","Tailored resume"],["cover","Cover letter"],["notes","Fit notes"]];
+function renderGenOut(){
+  const out = $("#g-out"); if (!out) return;
+  const g = S.gen;
+  if (!g || g.jobId !== S.selected){ out.innerHTML = ""; return; }
+  const text = g[g.tab] || "";
+  const waiting = g.status === "running" && !text;
+  out.innerHTML = `
+    ${g.error ? `<div class="errbox" style="margin-bottom:10px">${esc(g.error)}</div>` : ""}
+    <div class="doc-tabs" role="tablist">${DOCS.map(([k,t]) => `<button type="button" role="tab" data-doc="${k}" aria-selected="${g.tab===k}">${t}</button>`).join("")}</div>
+    <div class="doc-actions" style="margin:10px 0">
+      <button type="button" class="btn small" id="d-edit" ${g.status==="running"?"disabled":""}>${g.edit ? "Done editing" : "Edit"}</button>
+      <button type="button" class="btn small" id="d-copy" ${!text?"disabled":""}>Copy</button>
+      <button type="button" class="btn small" id="d-word" ${!text||g.status==="running"?"disabled":""}>Download for Word</button>
+      <button type="button" class="btn small" id="d-md" ${!text||g.status==="running"?"disabled":""}>Download text</button>
+    </div>
+    ${g.edit
+      ? `<textarea class="paper-edit" id="d-text" aria-label="Edit document">${esc(text)}</textarea>`
+      : `<article class="paper" id="d-paper">${waiting ? `<div class="thinking"><span class="dot"></span>${g.tab==="resume" ? "Reading the job and your resume…" : "Waiting for the resume to finish…"}</div>` : md(text)}</article>`}`;
+}
+
+/* Small Markdown renderer for generated documents */
+function md(src){
+  if (!src) return '<p class="muted" style="font-family:var(--f-ui)">Nothing here yet.</p>';
+  const inline = s => esc(s).replace(/\*\*(.+?)\*\*/g, "<b>$1</b>").replace(/(^|[^*])\*(?!\s)(.+?)\*/g, "$1<i>$2</i>");
+  const lines = src.replace(/\r/g,"").split("\n");
+  let html = "", list = false, para = [];
+  const flush = () => { if (para.length){ html += "<p>" + para.map(inline).join("<br>") + "</p>"; para = []; } if (list){ html += "</ul>"; list = false; } };
+  for (const raw of lines){
+    const l = raw.trimEnd();
+    let mm;
+    if (!l.trim()){ flush(); continue; }
+    if ((mm = l.match(/^(#{1,3})\s+(.*)$/))){ flush(); html += `<h${mm[1].length}>${inline(mm[2])}</h${mm[1].length}>`; continue; }
+    if ((mm = l.match(/^\s*[-*•]\s+(.*)$/))){ if (para.length){ html += "<p>" + para.map(inline).join("<br>") + "</p>"; para = []; } if (!list){ html += "<ul>"; list = true; } html += `<li>${inline(mm[1])}</li>`; continue; }
+    if (list){ html += "</ul>"; list = false; }
+    para.push(l);
+  }
+  flush();
+  return html;
+}
+
+function buildPrompt(j, opts){
+  const p = S.profile;
+  return `You are an expert career coach and resume writer. Tailor this person's resume and write a cover letter for the job below.
+
+RULES
+- Use only facts found in the candidate's resume, skills and hobbies. Never invent employers, titles, dates, degrees, certifications, metrics or tools. You may reorder, rephrase, regroup and cut.
+- Lead with the experience and skills most relevant to this job. Mirror the job's own vocabulary where it truthfully applies.
+- Resume: ${opts.len === "two" ? "up to two pages" : "fits on one page"}. Start with "# Full Name", then one line of contact details, then a 2–3 sentence summary aimed at this role, then sections with "## " headings (for example Experience, Skills, Education). Use "- " bullets with strong verbs.
+- ${opts.hobbies ? "Add a short \"## Interests\" section with the candidate's hobbies, putting any that relate to this job or employer first." : "Do not include a hobbies or interests section."}
+- Cover letter: ${opts.tone} tone, 250–350 words, addressed to the hiring team at the company, specific to this role. No placeholder brackets except [Date] if needed. Sign with the candidate's name.
+- Fit notes: 3–6 "- " bullets: the strongest matches, any gaps the candidate should be ready to address, and one idea for what to mention in an interview.
+
+OUTPUT FORMAT (exactly these three markers, each on its own line, nothing before the first):
+=====RESUME=====
+(resume in Markdown)
+=====COVER LETTER=====
+(cover letter in Markdown)
+=====FIT NOTES=====
+(bullets)
+
+JOB
+Title: ${j.title}
+Company: ${j.company}
+Location: ${j.arrangement === "remote" ? "Remote" + (j.region ? " (" + j.region + ")" : "") : (j.city || "")} · ${ARR[j.arrangement]}
+Schedule: ${SCHED[j.schedule]}${hoursText(j) ? ", " + hoursText(j) : ""}
+Pay: ${payText(j)}
+Level: ${LEVEL[j.level] || "not listed"}; Industry: ${j.industry || "not listed"}
+About: ${j.about}
+Skills wanted: ${(j.skills||[]).join(", ")}
+${j.description ? "Full posting:\n" + j.description.slice(0, 9000) : ""}
+
+CANDIDATE
+Name: ${p.name}
+Headline: ${p.headline}
+Contact: ${[p.email, p.phone, p.links, p.home].filter(Boolean).join(" · ")}
+Skills: ${p.skills}
+Hobbies and interests: ${p.hobbies}
+Current resume:
+${String(p.resume).slice(0, 20000)}
+${opts.notes ? "\nThe candidate asks you to emphasize: " + opts.notes : ""}`;
+}
+
+function splitSections(text){
+  const r = {resume:"", cover:"", notes:""};
+  const parts = text.split(/^=====\s*(RESUME|COVER LETTER|FIT NOTES)\s*=====\s*$/m);
+  if (parts.length < 2){ r.resume = text.trim(); return r; }
+  for (let i = 1; i < parts.length; i += 2){
+    const k = parts[i] === "RESUME" ? "resume" : parts[i] === "COVER LETTER" ? "cover" : "notes";
+    r[k] = (parts[i+1] || "").trim();
+  }
+  return r;
+}
+
+const ERR = {
+  bad_key:"Your Claude API key was rejected. Check it under My resume.",
+  not_granted:"Generation was not allowed. You can allow it from this page's Permissions menu and try again.",
+  rate_limited:"Claude is busy for you right now. Wait a minute, then try again.",
+  sampling_disabled:"Asking Claude is turned off for your account.",
+  session_expired:"Your session expired. Reload the page and try again.",
+  prompt_too_large:"Your resume plus the posting is too long. Shorten the resume or the pasted posting.",
+  refused:"Claude declined this request. Try rewording your notes.",
+  upstream_error:"The connection dropped while writing. Anything shown so far is kept; try again for the rest."
+};
+
+async function generate(){
+  const j = jobById(S.selected); if (!j) return;
+  const sample = await getSample();
+  if (!sample){ S.gen = {jobId:j.id, status:"error", resume:"", cover:"", notes:"", tab:"resume", error:NO_CLAUDE}; renderDetail(); return; }
+  const opts = {tone:$("#g-tone").value, len:$("#g-len").value, hobbies:$("#g-hobbies").checked, notes:$("#g-notes").value.trim()};
+  if (opts.tone !== S.profile.tone){ S.profile.tone = opts.tone; Store.saveMain(); }
+  const ctl = new AbortController();
+  const prevApp = S.apps.find(a => a.job?.id === j.id);
+  S.gen = {jobId:j.id, status:"running", resume:"", cover:"", notes:"", tab:"resume", edit:false, ctl, appId:prevApp?.id};
+  renderDetail();
+  const keepOpts = {...opts};
+  try{
+    const {text} = await sample(buildPrompt(j, opts), {
+      signal: ctl.signal, cache:false,
+      onText: ({text}) => {
+        if (S.gen?.ctl !== ctl) return;
+        const sec = splitSections(text);
+        Object.assign(S.gen, sec);
+        if (S.selected === j.id) renderGenOut();
+      }
+    });
+    Object.assign(S.gen, splitSections(text), {status:"done"});
+    saveApp(j, S.gen, keepOpts);
+    toast("Saved to Applications");
+  }catch(e){
+    if (S.gen?.ctl !== ctl) return;
+    if (e?.text) Object.assign(S.gen, splitSections(e.text));
+    S.gen.status = "done";
+    if (e?.code !== "cancelled") S.gen.error = ERR[e?.code] || "Something went wrong while writing. Try again.";
+    if (S.gen.resume || S.gen.cover) saveApp(j, S.gen, keepOpts);
+  }
+  if (S.selected === j.id) renderDetail();
+}
+
+function saveApp(j, g, opts){
+  let app = g.appId && S.apps.find(a => a.id === g.appId);
+  const now = new Date().toISOString();
+  if (!app){ app = {id:"a"+uid(), job:j, status:"draft", created:now}; S.apps.unshift(app); g.appId = app.id; }
+  Object.assign(app, {job:j, resume:g.resume, cover:g.cover, notes:g.notes, updated:now, tone:opts?.tone || app.tone});
+  Store.putApp(app);
+  renderAppsCount();
+}
+
+function bindDetail(){
+  const pane = $("#detail");
+  pane.addEventListener("click", async e => {
+    const t = e.target.closest("button"); if (!t) return;
+    if (t.id === "d-back"){ S.selected = null; renderDetail(); renderList(); return; }
+    if (t.dataset.goto){ setView(t.dataset.goto); return; }
+    if (t.id === "g-go") return generate();
+    if (t.id === "g-stop"){ S.gen?.ctl?.abort(); return; }
+    if (t.id === "del-job") return confirmInline(t, "Remove", () => {
+      S.customJobs = S.customJobs.filter(j => j.id !== S.selected); Store.delJob(S.selected);
+      S.selected = null; renderDetail(); renderList(); updateCounts();
+    });
+    docActions(t, S.gen, () => renderGenOut(), app => app);
+  });
+  pane.addEventListener("input", e => {
+    if (e.target.id === "d-text" && S.gen){ S.gen[S.gen.tab] = e.target.value; const j = jobById(S.gen.jobId); Store.debounce("edit", () => saveApp(j, S.gen), 800); }
+  });
+}
+
+/* Shared actions for a set of generated documents (tailor pane and Applications view) */
+async function docActions(t, g, rerender){
+  if (!g) return;
+  if (t.dataset.doc){ g.tab = t.dataset.doc; g.edit = false; rerender(); return; }
+  const j = g.job || jobById(g.jobId) || {};
+  const text = g[g.tab] || "";
+  const base = `${(S.profile.name||"me").replace(/\s+/g,"-")}_${(j.company||"job").replace(/[^\w]+/g,"-")}_${g.tab === "cover" ? "cover-letter" : g.tab === "notes" ? "fit-notes" : "resume"}`;
+  if (t.id === "d-edit"){ g.edit = !g.edit; rerender(); return; }
+  if (t.id === "d-copy"){
+    try{ await navigator.clipboard.writeText(text); toast("Copied"); }
+    catch(_){ const el = $("#d-paper") || $("#d-text"); if (el){ const r = document.createRange(); r.selectNodeContents(el); const s = getSelection(); s.removeAllRanges(); s.addRange(r); } toast("Press Ctrl+C or ⌘C to copy the selected text"); }
+    return;
+  }
+  if (t.id === "d-word" || t.id === "d-md"){
+    const dl = await getDownloads();
+    if (!dl){ toast("Downloads aren't available here. Use Copy instead."); return; }
+    const word = t.id === "d-word";
+    const data = word
+      ? `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word"><head><meta charset="utf-8"><style>body{font-family:Georgia,serif;font-size:11pt;line-height:1.4}h1{font-size:20pt;margin:0}h2{font-size:11pt;text-transform:uppercase;letter-spacing:1px;color:#2A5C7C;border-bottom:1px solid #ccc;margin:14pt 0 4pt}h3{font-size:12pt;margin:8pt 0 2pt}ul{margin:0 0 6pt}p{margin:0 0 6pt}</style></head><body>${md(text)}</body></html>`
+      : text;
+    try{
+      await dl.save({filename: base + (word ? ".doc" : ".md"), data: word ? new Blob([data], {type:"application/msword"}) : data});
+    }catch(e){ if (e?.code && e.code !== "cancelled" && e.code !== "declined") toast("The file wasn't saved. Use Copy instead."); }
+  }
+}
+
+function confirmInline(btn, label, fn){
+  if (btn.dataset.armed){ fn(); return; }
+  btn.dataset.armed = "1"; const old = btn.textContent; btn.textContent = label + "? Click again";
+  setTimeout(() => { if (btn.isConnected){ delete btn.dataset.armed; btn.textContent = old; } }, 3000);
+}
+
+/* ---------- Profile ---------- */
+function renderProfile(){
+  const p = S.profile;
+  const cityOpts = Object.keys(CITIES).map(c => `<option ${c===p.home?"selected":""}>${esc(c)}</option>`).join("");
+  $("#profile-form").innerHTML = `
+    <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center">
+      <h2>My resume</h2>
+      ${p.isExample ? `<button type="button" class="btn small" id="p-clear">Clear the example and start mine</button>` : `<span class="muted" style="font-size:13px">Changes save as you type</span>`}
+    </div>
+    ${p.isExample ? `<div class="warnbox">This is an example profile so you can try tailoring right away. Replace it with your own details.</div>` : ""}
+    <div class="two">
+      <label class="field"><span>Full name</span><input type="text" id="p-name" value="${esc(p.name)}"></label>
+      <label class="field"><span>Headline</span><input type="text" id="p-headline" value="${esc(p.headline)}" placeholder="e.g. Bilingual customer support specialist"></label>
+    </div>
+    <div class="two">
+      <label class="field"><span>Email</span><input type="email" id="p-email" value="${esc(p.email)}"></label>
+      <label class="field"><span>Phone</span><input type="text" id="p-phone" value="${esc(p.phone)}"></label>
+    </div>
+    <div class="two">
+      <label class="field"><span>Links</span><input type="text" id="p-links" value="${esc(p.links)}" placeholder="LinkedIn, portfolio"></label>
+      <label class="field"><span>Home city</span><select id="p-home">${cityOpts}</select><small>Used for “within N miles”.</small></label>
+    </div>
+    <label class="field"><span>Resume</span>
+      <small>Paste the full text of your current resume. You can also load a .txt or .md file.</small>
+      <textarea id="p-resume" rows="16" class="num" style="font-size:13px">${esc(p.resume)}</textarea>
+      <input type="file" id="p-file" accept=".txt,.md,.markdown,text/plain" style="font-size:13px">
+    </label>
+    <label class="field"><span>Skills</span><small>Comma-separated. These drive the match score.</small>
+      <textarea id="p-skills" rows="3">${esc(p.skills)}</textarea></label>
+    <label class="field"><span>Hobbies and interests</span><small>Comma-separated. Jobs that connect to them get flagged, and they can go on your tailored resume.</small>
+      <textarea id="p-hobbies" rows="2">${esc(p.hobbies)}</textarea></label>`;
+  renderSkillsPreview();
+}
+function renderSkillsPreview(){
+  const sk = tokens(S.profile.skills), hb = tokens(S.profile.hobbies);
+  const near = allJobs().filter(j => skillMatch(j).pct >= 50).length;
+  const fit = allJobs().filter(j => interestHits(j).length).length;
+  $("#skills-preview").innerHTML = `
+    <div class="label" style="margin-top:6px">From your profile</div>
+    <p style="margin:0">${sk.length} skills · ${hb.length} interests</p>
+    <p style="margin:0"><b class="num">${near}</b> listings match half or more of your skills, and <b class="num">${fit}</b> connect to your interests.</p>`;
+}
+function bindProfile(){
+  const f = $("#profile-form");
+  f.addEventListener("submit", e => e.preventDefault());
+  const map = {"p-name":"name","p-headline":"headline","p-email":"email","p-phone":"phone","p-links":"links","p-resume":"resume","p-skills":"skills","p-hobbies":"hobbies"};
+  f.addEventListener("input", e => {
+    const k = map[e.target.id]; if (!k) return;
+    S.profile[k] = e.target.value;
+    if (S.profile.isExample){ S.profile.isExample = false; }
+    Store.saveMain(); renderSkillsPreview();
+  });
+  f.addEventListener("change", e => {
+    if (e.target.id === "p-home"){ S.profile.home = e.target.value; Store.saveMain(); }
+    if (e.target.id === "p-file" && e.target.files[0]){
+      const fr = new FileReader();
+      fr.onload = () => { S.profile.resume = String(fr.result); S.profile.isExample = false; Store.saveMain(); renderProfile(); toast("Resume loaded"); };
+      fr.readAsText(e.target.files[0]);
+    }
+  });
+  f.addEventListener("click", e => {
+    if (e.target.id === "p-clear"){
+      S.profile = {isExample:false, name:"", headline:"", email:"", phone:"", links:"", home:S.profile.home, resume:"", skills:"", hobbies:"", tone:"warm", extra:""};
+      Store.saveMain(); renderProfile(); $("#p-name").focus();
+    }
+  });
+}
+
+/* ---------- Applications ---------- */
+const STATUSES = [["draft","Draft"],["applied","Applied"],["interview","Interviewing"],["offer","Offer"],["closed","Closed"]];
+function renderAppsCount(){ $("#apps-count").textContent = S.apps.length ? "(" + S.apps.length + ")" : ""; }
+function renderApps(){
+  renderAppsCount();
+  const el = $("#apps");
+  if (!S.apps.length){
+    el.innerHTML = `<div class="empty"><b>No applications yet.</b><br>Open a job and choose “Generate resume and cover letter”. Each one is saved here so you can track where you applied.</div>`;
+    $("#app-view").innerHTML = ""; return;
+  }
+  el.innerHTML = S.apps.map(a => `
+    <div class="app-row">
+      <div style="min-width:0"><h3>${esc(a.job?.title)}</h3><div class="muted" style="font-size:13.5px">${esc(a.job?.company)} · updated ${esc(new Date(a.updated||a.created).toLocaleDateString())}</div></div>
+      <select data-status="${esc(a.id)}" aria-label="Status">${STATUSES.map(([v,t]) => `<option value="${v}" ${a.status===v?"selected":""}>${t}</option>`).join("")}</select>
+      <div class="doc-actions"><button type="button" class="btn small" data-open="${esc(a.id)}">${S.openApp?.id===a.id ? "Hide" : "View documents"}</button><button type="button" class="btn ghost small danger" data-delapp="${esc(a.id)}">Delete</button></div>
+    </div>`).join("");
+  renderAppView();
+}
+function renderAppView(){
+  const v = $("#app-view"), o = S.openApp;
+  if (!o){ v.innerHTML = ""; return; }
+  const text = o[o.tab] || "";
+  v.innerHTML = `<div class="pane" style="padding:16px 20px;display:grid;gap:10px">
+    <div class="label">${esc(o.job?.company)} · ${esc(o.job?.title)}</div>
+    <div class="doc-tabs" role="tablist">${DOCS.map(([k,t]) => `<button type="button" role="tab" data-doc="${k}" aria-selected="${o.tab===k}">${t}</button>`).join("")}</div>
+    <div class="doc-actions">
+      <button type="button" class="btn small" id="d-edit">${o.edit ? "Done editing" : "Edit"}</button>
+      <button type="button" class="btn small" id="d-copy" ${!text?"disabled":""}>Copy</button>
+      <button type="button" class="btn small" id="d-word" ${!text?"disabled":""}>Download for Word</button>
+      <button type="button" class="btn small" id="d-md" ${!text?"disabled":""}>Download text</button>
+      <button type="button" class="btn ghost small" data-tojob="${esc(o.job?.id)}">Open job</button>
+    </div>
+    ${o.edit ? `<textarea class="paper-edit" id="d-text">${esc(text)}</textarea>` : `<article class="paper" id="d-paper">${md(text)}</article>`}
+  </div>`;
+}
+function bindApps(){
+  const root = $("#view-apps");
+  root.addEventListener("change", e => {
+    const id = e.target.dataset.status; if (!id) return;
+    const a = S.apps.find(x => x.id === id); a.status = e.target.value; a.updated = new Date().toISOString(); Store.putApp(a);
+  });
+  root.addEventListener("click", e => {
+    const t = e.target.closest("button"); if (!t) return;
+    if (t.dataset.open){
+      const a = S.apps.find(x => x.id === t.dataset.open);
+      S.openApp = S.openApp?.id === a.id ? null : {id:a.id, job:a.job, resume:a.resume, cover:a.cover, notes:a.notes, tab:"resume", edit:false};
+      renderApps(); if (S.openApp) $("#app-view").scrollIntoView({behavior:"smooth", block:"start"}); return;
+    }
+    if (t.dataset.delapp) return confirmInline(t, "Delete", () => {
+      S.apps = S.apps.filter(x => x.id !== t.dataset.delapp); Store.delApp(t.dataset.delapp);
+      if (S.openApp?.id === t.dataset.delapp) S.openApp = null;
+      if (S.gen?.appId === t.dataset.delapp) S.gen = null;
+      renderApps();
+    });
+    if (t.dataset.tojob){ S.selected = t.dataset.tojob; S.gen = null; setView("jobs"); renderDetail(); renderList(); return; }
+    if (S.openApp) docActions(t, S.openApp, renderAppView);
+  });
+  root.addEventListener("input", e => {
+    if (e.target.id === "d-text" && S.openApp){
+      const o = S.openApp; o[o.tab] = e.target.value;
+      const a = S.apps.find(x => x.id === o.id);
+      if (a){ a[o.tab] = e.target.value; a.updated = new Date().toISOString(); Store.putApp(a); if (S.gen?.appId === a.id) S.gen[o.tab] = e.target.value; }
+    }
+  });
+}
+
+/* ---------- Add a job ---------- */
+function openAddJob(){
+  const root = $("#overlay-root");
+  root.innerHTML = `<div class="overlay" id="ov"><div class="modal" role="dialog" aria-modal="true" aria-labelledby="aj-h">
+    <form class="form" id="aj-form">
+      <h2 id="aj-h">Add a job</h2>
+      <p class="hint">Paste a posting from any job site. Claude reads it and fills in the details, or fill them in yourself.</p>
+      <label class="field"><span>Posting text</span><textarea id="aj-text" rows="7" placeholder="Paste the whole job description here"></textarea></label>
+      <div class="doc-actions"><button type="button" class="btn" id="aj-read">Fill in details from the posting</button><span class="muted" id="aj-status" style="font-size:13px"></span></div>
+      <div class="two">
+        <label class="field"><span>Job title</span><input type="text" id="aj-title" required></label>
+        <label class="field"><span>Company</span><input type="text" id="aj-company" required></label>
+      </div>
+      <div class="two">
+        <label class="field"><span>Where</span><select id="aj-arr">${Object.entries(ARR).map(([k,v]) => `<option value="${k}">${v}</option>`).join("")}</select></label>
+        <label class="field"><span>City</span><select id="aj-city"><option value="">Not listed / other</option>${Object.keys(CITIES).map(c => `<option>${esc(c)}</option>`).join("")}</select></label>
+      </div>
+      <div class="two">
+        <label class="field"><span>Schedule</span><select id="aj-sched">${Object.entries(SCHED).map(([k,v]) => `<option value="${k}">${v}</option>`).join("")}</select></label>
+        <label class="field"><span>Level</span><select id="aj-level">${Object.entries(LEVEL).map(([k,v]) => `<option value="${k}" ${k==="mid"?"selected":""}>${v}</option>`).join("")}</select></label>
+      </div>
+      <div class="two">
+        <label class="field"><span>Pay range</span><div class="row" style="display:flex;gap:6px"><input type="number" id="aj-pmin" placeholder="Min" class="num"><input type="number" id="aj-pmax" placeholder="Max" class="num"><select id="aj-basis" style="width:auto"><option value="hour">/hr</option><option value="year">/yr</option></select></div></label>
+        <label class="field"><span>Hours per week</span><div style="display:flex;gap:6px"><input type="number" id="aj-hmin" placeholder="Min" class="num"><input type="number" id="aj-hmax" placeholder="Max" class="num"></div></label>
+      </div>
+      <div class="two">
+        <label class="field"><span>Industry</span><select id="aj-ind"><option value="">Not listed</option>${INDUSTRIES.map(x => `<option>${x}</option>`).join("")}</select></label>
+        <label class="field"><span>Link to posting</span><input type="text" id="aj-url" placeholder="https://"></label>
+      </div>
+      <label class="field"><span>Skills they want</span><input type="text" id="aj-skills" placeholder="Comma-separated"></label>
+      <label class="field"><span>One-line summary</span><input type="text" id="aj-about"></label>
+      <p class="errbox" id="aj-err" hidden></p>
+    </form>
+    <div class="modal-foot"><button type="button" class="btn ghost" id="aj-cancel">Cancel</button><button type="button" class="btn primary" id="aj-save">Save job</button></div>
+  </div></div>`;
+  $("#aj-text").focus();
+  const close = () => { root.innerHTML = ""; };
+  $("#ov").addEventListener("click", e => { if (e.target.id === "ov" || e.target.id === "aj-cancel") close(); });
+  $("#ov").addEventListener("keydown", e => { if (e.key === "Escape") close(); });
+  $("#aj-form").addEventListener("submit", e => e.preventDefault());
+  $("#aj-read").addEventListener("click", async () => {
+    const txt = $("#aj-text").value.trim(); const st = $("#aj-status");
+    if (txt.length < 40){ st.textContent = "Paste the posting first."; return; }
+    const sample = await getSample();
+    if (!sample){ st.textContent = "To read postings automatically, add your Claude API key under My resume. Or fill in the fields yourself."; return; }
+    $("#aj-read").disabled = true; st.textContent = "Reading the posting…";
+    try{
+      const d = await sample.json(`Extract details from this job posting. Reply with only a JSON object with these keys:
+{"title": string, "company": string, "arrangement": "remote"|"hybrid"|"onsite", "city": string (nearest of: ${Object.keys(CITIES).join("; ")}; or "" if none or remote), "schedule": "full-time"|"part-time"|"contract"|"temporary"|"internship", "level": "entry"|"mid"|"senior", "payMin": number|null, "payMax": number|null, "payBasis": "hour"|"year", "hoursMin": number|null, "hoursMax": number|null, "industry": one of ${JSON.stringify(INDUSTRIES)} or "", "skills": [up to 8 short lowercase skill phrases], "about": one plain sentence summarizing the role}
+Use null or "" when the posting doesn't say.
+
+POSTING:
+${txt.slice(0, 12000)}`, {modelTier:"quick"});
+      const set = (id, v) => { if (v !== null && v !== undefined && v !== "") $(id).value = v; };
+      set("#aj-title", d.title); set("#aj-company", d.company);
+      if (ARR[d.arrangement]) $("#aj-arr").value = d.arrangement;
+      if (CITIES[d.city]) $("#aj-city").value = d.city;
+      if (SCHED[d.schedule]) $("#aj-sched").value = d.schedule;
+      if (LEVEL[d.level]) $("#aj-level").value = d.level;
+      set("#aj-pmin", d.payMin); set("#aj-pmax", d.payMax); if (d.payBasis === "year" || d.payBasis === "hour") $("#aj-basis").value = d.payBasis;
+      set("#aj-hmin", d.hoursMin); set("#aj-hmax", d.hoursMax);
+      if (INDUSTRIES.includes(d.industry)) $("#aj-ind").value = d.industry;
+      if (Array.isArray(d.skills)) $("#aj-skills").value = d.skills.join(", ");
+      set("#aj-about", d.about);
+      st.textContent = "Filled in. Check the details, then save.";
+    }catch(e){
+      st.textContent = e?.code === "not_granted" ? "Not allowed. Fill in the fields yourself." : "Couldn't read that posting. Fill in the fields yourself.";
+    }finally{ $("#aj-read").disabled = false; }
+  });
+  $("#aj-save").addEventListener("click", () => {
+    const v = id => $(id).value.trim(), n = id => { const x = parseFloat($(id).value); return isNaN(x) ? null : x; };
+    if (!v("#aj-title") || !v("#aj-company")){ const er = $("#aj-err"); er.hidden = false; er.textContent = "Add at least a job title and company."; return; }
+    const pmax = n("#aj-pmax") ?? n("#aj-pmin");
+    const job = {
+      id:"my"+uid(), custom:true, title:v("#aj-title"), company:v("#aj-company"), arrangement:$("#aj-arr").value,
+      city: $("#aj-arr").value === "remote" ? null : (v("#aj-city") || null), schedule:$("#aj-sched").value, level:$("#aj-level").value,
+      payMin:n("#aj-pmin") ?? pmax, payMax:pmax, payBasis:$("#aj-basis").value,
+      hoursMin:n("#aj-hmin") ?? n("#aj-hmax") ?? 0, hoursMax:n("#aj-hmax") ?? n("#aj-hmin") ?? 0,
+      industry:v("#aj-ind"), size:"", posted:0, benefits:[], skills:tokens(v("#aj-skills")), interests:[],
+      about:v("#aj-about") || v("#aj-text").slice(0, 200), description:v("#aj-text"), url:/^https?:\/\//.test(v("#aj-url")) ? v("#aj-url") : "", region:"",
+      addedAt:new Date().toISOString()
+    };
+    // Let hobby matching see the posting text
+    const hob = tokens(S.profile.hobbies);
+    job.interests = hob.filter(h => (job.description + " " + job.about).toLowerCase().includes(h));
+    S.customJobs.unshift(job); Store.putJob(job);
+    close(); S.selected = job.id; S.gen = null;
+    updateCounts(); renderList(); renderDetail(); toast("Job added");
+  });
+}
+
+/* ---------- Views ---------- */
+function setView(v){
+  S.view = v;
+  for (const b of document.querySelectorAll("[data-view]")) b.setAttribute("aria-selected", b.dataset.view === v);
+  $("#view-jobs").hidden = v !== "jobs"; $("#view-profile").hidden = v !== "profile"; $("#view-apps").hidden = v !== "apps";
+  if (v === "profile") renderProfile();
+  if (v === "apps") renderApps();
+  if (v === "jobs"){ renderFilters(); renderList(); renderDetail(); }
+  try{ localStorage.setItem("carearz:view", v); }catch(_){}
+  scrollTo({top:0});
+}
+
+function renderAll(){
+  $("#sort").value = S.sort;
+  renderSaveState(); renderAppsCount();
+  if (S.view === "jobs"){ renderFilters(); renderList(); renderDetail(); }
+  else setView(S.view);
+}
+
+/* ---------- Boot ---------- */
+function boot(){
+  const main = Store.local("main"); applyLoaded(main, Store.local("apps"), Store.local("jobs"));
+  try{ const v = localStorage.getItem("carearz:view"); if (v === "profile" || v === "apps") S.view = v; }catch(_){}
+  // Open with the best match selected so the tailoring panel is visible on wide screens
+  if (matchMedia("(min-width:1181px)").matches){ const r = results(); if (r[0]) S.selected = r[0].j.id; }
+
+  document.querySelector(".tabs").addEventListener("click", e => { const b = e.target.closest("[data-view]"); if (b) setView(b.dataset.view); });
+  $("#sort").addEventListener("change", e => { S.sort = e.target.value; Store.saveMain(); renderList(); });
+  $("#cards").addEventListener("click", e => {
+    const c = e.target.closest("[data-job]"); if (!c) return;
+    S.selected = c.dataset.job;
+    if (S.gen && S.gen.jobId !== S.selected && S.gen.status !== "running") S.gen = null;
+    renderList(); renderDetail();
+    const d = $("#detail"); d.scrollTop = 0;
+  });
+  $("#add-job").addEventListener("click", openAddJob);
+  $("#filters-toggle").addEventListener("click", e => {
+    S.filtersOpen = !S.filtersOpen; $("#filters").classList.toggle("open", S.filtersOpen); e.currentTarget.setAttribute("aria-expanded", S.filtersOpen);
+  });
+  bindFilters(); bindDetail(); bindProfile(); bindApps();
+  $("#apikey-save").addEventListener("click", () => { const v = $("#apikey").value.trim(); if (!v) return; try{ localStorage.setItem("carearz:apikey", v); }catch(_){} $("#apikey").value = ""; renderKeyBox(); toast("Key saved"); });
+  $("#apikey-clear").addEventListener("click", () => { try{ localStorage.removeItem("carearz:apikey"); }catch(_){} renderKeyBox(); toast("Key removed"); });
+  renderKeyBox();
+  renderAll();
+
+  Store.init().then(async () => {
+    if (Store.mode !== "cloud"){ renderSaveState(); return; }
+    const data = await Store.loadAll();
+    if (data){
+      if (data.main) applyLoaded(data.main, data.apps, data.jobs);
+      else {
+        // First visit with an account: move anything saved in this browser up
+        Store.saveMain();
+        S.apps.forEach(a => Store.putApp(a)); S.customJobs.forEach(j => Store.putJob(j));
+        if (data.apps.length) S.apps = data.apps; if (data.jobs.length) S.customJobs = data.jobs;
+      }
+    }
+    if (S.selected && !jobById(S.selected)) S.selected = null;
+    if (S.active >= S.searches.length) S.active = 0;
+    renderAll();
+  });
+}
+boot();
+})();
+</script>
+
+</body>
+</html>
