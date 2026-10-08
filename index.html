@@ -420,7 +420,7 @@ const S = {
   view:"jobs", profile:{...EXAMPLE_PROFILE}, searches:DEFAULT_SEARCHES(), active:0, sort:"match",
   selected:null, customJobs:[], apps:[], openApp:null,
   gen:null, // {jobId, status, resume, cover, notes, tab, edit, error, ctl}
-  filtersOpen:false, liveJobs:[], showExamples:true, live:{q:"", zip:"", busy:false, page:1, status:{}}
+  filtersOpen:false, showAllLive:false, liveJobs:[], showExamples:true, live:{q:"", zip:"", busy:false, page:1, status:{}}
 };
 
 function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,7) }
@@ -608,7 +608,19 @@ const JS_BEN = {health_insurance:"health", dental_coverage:"health", paid_time_o
 const JS_SCHED = {FULLTIME:"full-time", PARTTIME:"part-time", CONTRACTOR:"contract", INTERN:"internship", TEMPORARY:"temporary"};
 function hobbyTags(text){ const t = String(text||"").toLowerCase(); return tokens(S.profile.hobbies).filter(h => t.includes(h)); }
 
-function fromJSearch(r){
+// Job services often leave out the schedule, remote flag or map position. When they do,
+// trust what we asked them for, so the listing isn't hidden by our own filters.
+function withQueryHints(j, c){
+  // JSearch filters remote jobs itself; Adzuna only matches the word "remote", so check the text too
+  if (c.remote && j.arrangement !== "hybrid" && (j.source !== "Adzuna" || /\bremote\b/i.test(j.title + " " + j.description))) j.arrangement = "remote";
+  if (!j.schedule) j.schedule = c.sched && c.sched.length === 1 ? c.sched[0] : "full-time";
+  if (!c.remote && c.zip && typeof j.lat !== "number"){
+    const z = zipInfo(c.zip);
+    if (z){ j.lat = z.lat; j.lng = z.lng; j.approxLoc = true; }
+  }
+  return j;
+}
+function fromJSearch(r, c = {}){
   const desc = String(r.job_description || "");
   const type = (r.job_employment_types && r.job_employment_types[0]) || r.job_employment_type;
   let pmin = r.job_min_salary, pmax = r.job_max_salary, basis = "year";
@@ -619,7 +631,7 @@ function fromJSearch(r){
     id:"js_" + r.job_id, live:true, source:r.job_publisher || "JSearch",
     title:r.job_title || "Untitled", company:r.employer_name || "Unknown employer",
     arrangement:guessArrangement(r.job_is_remote, (r.job_title || "") + " " + desc.slice(0, 1500)),
-    schedule:JS_SCHED[String(type || "").toUpperCase()] || "full-time", hoursMin:0, hoursMax:0,
+    schedule:JS_SCHED[String(type || "").toUpperCase()] || "", hoursMin:0, hoursMax:0,
     payMin:pmin || pmax || 0, payMax:pmax || pmin || 0, payBasis:basis,
     level:guessLevel(r.job_title), industry:"", size:"", postedAt, posted:daysAgo(postedAt),
     benefits:[...new Set((r.job_benefits || []).map(b => JS_BEN[b]).filter(Boolean))],
@@ -630,14 +642,14 @@ function fromJSearch(r){
     url:r.job_apply_link || r.job_google_link || "", region:r.job_is_remote ? (r.job_country || "") : ""
   };
 }
-function fromAdzuna(r){
+function fromAdzuna(r, c = {}){
   const desc = stripHtml(r.description), title = stripHtml(r.title);
   const postedAt = r.created ? Date.parse(r.created) : 0;
   return {
     id:"az_" + r.id, live:true, source:"Adzuna",
     title, company:r.company?.display_name || "Unknown employer",
     arrangement:guessArrangement(false, title + " " + desc),
-    schedule:r.contract_type === "contract" ? "contract" : r.contract_time === "part_time" ? "part-time" : "full-time", hoursMin:0, hoursMax:0,
+    schedule:r.contract_type === "contract" ? "contract" : r.contract_time === "part_time" ? "part-time" : r.contract_time === "full_time" ? "full-time" : "", hoursMin:0, hoursMax:0,
     payMin:Math.round(r.salary_min || r.salary_max || 0), payMax:Math.round(r.salary_max || r.salary_min || 0), payBasis:"year", payEstimated:r.salary_is_predicted == 1,
     level:guessLevel(title), industry:"", size:"", postedAt, posted:daysAgo(postedAt), benefits:[],
     skills:skillsIn(desc), interests:hobbyTags(desc), about:desc.slice(0, 260) + (desc.length > 260 ? "…" : ""), description:desc,
@@ -689,7 +701,7 @@ async function searchJSearch(key, c, page){
   if (c.zip) params.radius = String(Math.round(c.dist * 1.609));
   const r = await getJSON("https://jsearch.p.rapidapi.com/search?" + new URLSearchParams(params), {"X-RapidAPI-Key":key, "X-RapidAPI-Host":"jsearch.p.rapidapi.com"});
   if (r.status !== 200) return {error:liveErr("JSearch", r.status), jobs:[]};
-  return {jobs:(r.body?.data || []).map(fromJSearch)};
+  return {jobs:(r.body?.data || []).map(x => withQueryHints(fromJSearch(x, c), c))};
 }
 async function searchAdzuna(id, key, c, page){
   const params = {app_id:id, app_key:key, results_per_page:"30", max_days_old:String(c.posted || 30), "content-type":"application/json", what:c.q === "jobs" ? "" : c.q};
@@ -700,7 +712,7 @@ async function searchAdzuna(id, key, c, page){
   if (!params.what) delete params.what;
   const r = await getJSON(`https://api.adzuna.com/v1/api/jobs/us/search/${page}?` + new URLSearchParams(params), {Accept:"application/json"});
   if (r.status !== 200) return {error:liveErr("Adzuna", r.status), jobs:[]};
-  return {jobs:(r.body?.results || []).map(fromAdzuna)};
+  return {jobs:(r.body?.results || []).map(x => withQueryHints(fromAdzuna(x, c), c))};
 }
 function saveLive(){ try{ localStorage.setItem("carearz:live", JSON.stringify({jobs:S.liveJobs.slice(0, 400), showExamples:S.showExamples})); }catch(_){} }
 function loadLive(){
@@ -925,6 +937,7 @@ function results(){
   const out = [];
   for (const j of allJobs()){
     const via = on.filter(s => matchesSearch(j, s)).map(s => s.name);
+    if (!via.length && j.live && S.showAllLive) via.push("outside your filters");
     if (via.length) out.push({j, via, m:skillMatch(j), h:Math.min(interestHits(j).length, 2), mi:milesFromHome(j)});
   }
   const by = {
@@ -1139,6 +1152,9 @@ function renderList(){
   $("#summary").innerHTML = on.length
     ? on.map((s,i) => `${i ? '<span class="or">OR</span>' : ""}<span class="sum-pill"><b>${esc(s.name)}</b>: ${esc(describeSearch(s))}</span>`).join("")
     : `<span class="sum-pill">Every search is switched off. Turn one on in the filters.</span>`;
+  const shownLive = new Set(rs.filter(r => r.j.live && !r.via.includes("outside your filters")).map(r => r.j.id));
+  const hiddenLive = S.liveJobs.filter(j => !shownLive.has(j.id)).length;
+  if (hiddenLive) $("#summary").insertAdjacentHTML("beforeend", `<span class="sum-pill" style="border-color:var(--mark);color:var(--ink)">${hiddenLive} live job${hiddenLive === 1 ? " doesn't" : "s don't"} match your filters · <button type="button" class="btn ghost small" id="toggle-live-hidden" style="padding:0 4px">${S.showAllLive ? "Hide them" : "Show them anyway"}</button></span>`);
   if (!rs.length){
     $("#cards").innerHTML = `<div class="empty"><b>No jobs match.</b><br>Loosen a filter, add a location or raise the distance, or add an “Or…” search for another kind of job.</div>`;
     return;
@@ -1697,6 +1713,7 @@ function boot(){
     const d = $("#detail"); d.scrollTop = 0;
   });
   $("#add-job").addEventListener("click", openAddJob);
+  $("#summary").addEventListener("click", e => { if (e.target.id === "toggle-live-hidden"){ S.showAllLive = !S.showAllLive; renderList(); } });
   $("#filters-toggle").addEventListener("click", e => {
     S.filtersOpen = !S.filtersOpen; $("#filters").classList.toggle("open", S.filtersOpen); e.currentTarget.setAttribute("aria-expanded", S.filtersOpen);
   });
