@@ -12,7 +12,7 @@ A job search app with detailed filters that generates a resume and cover letter 
 - **Tailoring.** Pick a job to get a tailored resume, a cover letter and short notes on how well you fit. You can edit, copy and download each one.
 - **Applications.** Every tailored set is saved so you can track its status.
 
-- **Live jobs.** On the web version, **Search live jobs** pulls real listings from [JSearch](https://rapidapi.com/letscrape-6bRBa3QguO5/api/jsearch) (Google for Jobs results, including many LinkedIn, Indeed and ZipRecruiter postings) and [Adzuna](https://developer.adzuna.com/). Both need your own free key, which you add under **My resume**. Results from the two are merged, duplicates are dropped, and then your filters narrow them down.
+- **Live jobs.** On the web version, **Find live jobs for my searches** turns each search's keywords, locations, schedule, pay and date filters into live requests, pulling real listings from [JSearch](https://rapidapi.com/letscrape-6bRBa3QguO5/api/jsearch) (Google for Jobs results, including many LinkedIn, Indeed and ZipRecruiter postings) and [Adzuna](https://developer.adzuna.com/). Both need your own free key, which you add under **My resume**. Results from the two are merged, duplicates are dropped, and then your filters narrow them down.
 
 The app also includes made-up example jobs, which are hidden once you've loaded live results. You can still use **+ Add a job** to paste any posting by hand.
 

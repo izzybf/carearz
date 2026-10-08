@@ -265,7 +265,7 @@ input[type=range]{width:100%;accent-color:var(--accent)}
         <div class="pane live" id="live"></div>
         <div class="summary" id="summary"></div>
         <div class="cards" id="cards"></div>
-        <p class="hint" style="margin-top:14px">Listings marked “example” are sample data so you can try the filters. Use <b>Search live jobs</b> above, or <b>Add a job</b> to paste a posting from any job site.</p>
+        <p class="hint" style="margin-top:14px">Listings marked “example” are sample data so you can try the filters. Use <b>Find live jobs</b> above, or <b>Add a job</b> to paste a posting from any job site.</p>
       </div>
       <aside class="pane detail" id="detail" aria-label="Job detail"></aside>
     </div>
@@ -657,55 +657,80 @@ async function getJSON(url, headers){
   if (!res.ok) return {status:res.status};
   try{ return {status:200, body:await res.json()}; }catch(_){ return {status:-1}; }
 }
-async function searchJSearch(key, q, place, remoteToo, page){
-  const calls = [`${q}${place ? " in " + place : ""}`];
-  if (remoteToo) calls.push(q + " remote");
+/* Each active search becomes its own live request, built from that search's keywords and filters */
+const JS_TYPES = {"full-time":"FULLTIME","part-time":"PARTTIME","contract":"CONTRACTOR","internship":"INTERN","temporary":"CONTRACTOR"};
+function liveQueries(){
   const out = [];
-  for (let i = 0; i < calls.length; i++){
-    const u = "https://jsearch.p.rapidapi.com/search?" + new URLSearchParams({query:calls[i], page:String(page), num_pages:"1", country:"us", date_posted:"month", ...(i === 1 ? {work_from_home:"true", remote_jobs_only:"true"} : {})});
-    const r = await getJSON(u, {"X-RapidAPI-Key":key, "X-RapidAPI-Host":"jsearch.p.rapidapi.com"});
-    if (r.status !== 200) return {error:liveErr("JSearch", r.status), jobs:out};
-    for (const it of (r.body?.data || [])) out.push(fromJSearch(it));
+  for (const s of S.searches.filter(x => x.on)){
+    const words = [s.q.trim()];
+    if (!s.q.trim()){
+      if (s.sched.length === 1) words.push(SCHED[s.sched[0]].toLowerCase());
+      if (s.levels.length === 1 && s.levels[0] === "entry") words.push("entry level");
+      if (s.inds.length) words.push(s.inds[0].toLowerCase());
+    }
+    const q = words.filter(Boolean).join(" ").trim() || "jobs";
+    const remoteOnly = s.arr.length === 1 && s.arr[0] === "remote";
+    const wantsLocal = !remoteOnly;
+    const zips = wantsLocal ? (s.locs.length ? s.locs.map(locZip) : [homeZip()]).slice(0, 2) : [];
+    const base = {search:s.name, q, sched:s.sched, posted:s.posted, pay:s.pay, payBasis:s.payBasis, dist:s.locs.length ? s.dist : 25};
+    for (const z of zips) out.push({...base, zip:z, remote:false});
+    if (remoteOnly || s.arr.includes("remote") || !s.arr.length) out.push({...base, zip:"", remote:true});
   }
-  return {jobs:out};
+  return out.slice(0, 6);
 }
-async function searchAdzuna(id, key, q, zip, distMi, remoteToo, page){
-  const calls = [{what:q, ...(zip ? {where:zip, distance:String(Math.round((distMi || 25) * 1.609))} : {})}];
-  if (remoteToo) calls.push({what:q + " remote"});
-  const out = [];
-  for (const c of calls){
-    const u = `https://api.adzuna.com/v1/api/jobs/us/search/${page}?` + new URLSearchParams({app_id:id, app_key:key, results_per_page:"30", max_days_old:"30", "content-type":"application/json", ...c});
-    const r = await getJSON(u, {Accept:"application/json"});
-    if (r.status !== 200) return {error:liveErr("Adzuna", r.status), jobs:out};
-    for (const it of (r.body?.results || [])) out.push(fromAdzuna(it));
-  }
-  return {jobs:out};
+const describeQuery = c => `“${c.q}” ${c.remote ? "remote" : "near " + c.zip}`;
+async function searchJSearch(key, c, page){
+  const place = c.zip ? (zipInfo(c.zip)?.place || c.zip) : "";
+  const posted = !c.posted ? "month" : c.posted <= 1 ? "today" : c.posted <= 3 ? "3days" : c.posted <= 7 ? "week" : "month";
+  const params = {query:c.q + (place ? " in " + place : c.remote ? " remote" : ""), page:String(page), num_pages:"1", country:"us", date_posted:posted};
+  const types = [...new Set(c.sched.map(x => JS_TYPES[x]).filter(Boolean))];
+  if (types.length) params.employment_types = types.join(",");
+  if (c.remote){ params.work_from_home = "true"; params.remote_jobs_only = "true"; }
+  if (c.zip) params.radius = String(Math.round(c.dist * 1.609));
+  const r = await getJSON("https://jsearch.p.rapidapi.com/search?" + new URLSearchParams(params), {"X-RapidAPI-Key":key, "X-RapidAPI-Host":"jsearch.p.rapidapi.com"});
+  if (r.status !== 200) return {error:liveErr("JSearch", r.status), jobs:[]};
+  return {jobs:(r.body?.data || []).map(fromJSearch)};
 }
-function saveLive(){ try{ localStorage.setItem("carearz:live", JSON.stringify({jobs:S.liveJobs.slice(0, 300), q:S.live.q, zip:S.live.zip, showExamples:S.showExamples})); }catch(_){} }
+async function searchAdzuna(id, key, c, page){
+  const params = {app_id:id, app_key:key, results_per_page:"30", max_days_old:String(c.posted || 30), "content-type":"application/json", what:c.q === "jobs" ? "" : c.q};
+  if (c.remote) params.what = (params.what + " remote").trim();
+  if (c.zip){ params.where = c.zip; params.distance = String(Math.round(c.dist * 1.609)); }
+  if (c.sched.length === 1){ const k = {"full-time":"full_time","part-time":"part_time","contract":"contract","temporary":"contract"}[c.sched[0]]; if (k) params[k] = "1"; }
+  if (c.pay) params.salary_min = String(Math.round(c.payBasis === "hour" ? c.pay * 2080 : c.pay));
+  if (!params.what) delete params.what;
+  const r = await getJSON(`https://api.adzuna.com/v1/api/jobs/us/search/${page}?` + new URLSearchParams(params), {Accept:"application/json"});
+  if (r.status !== 200) return {error:liveErr("Adzuna", r.status), jobs:[]};
+  return {jobs:(r.body?.results || []).map(fromAdzuna)};
+}
+function saveLive(){ try{ localStorage.setItem("carearz:live", JSON.stringify({jobs:S.liveJobs.slice(0, 400), showExamples:S.showExamples})); }catch(_){} }
 function loadLive(){
   try{
     const v = JSON.parse(localStorage.getItem("carearz:live") || "null"); if (!v) return;
     S.liveJobs = (v.jobs || []).map(j => ({...j, posted:daysAgo(j.postedAt)}));
-    S.live.q = v.q || ""; S.live.zip = v.zip || ""; if (typeof v.showExamples === "boolean") S.showExamples = v.showExamples;
+    if (typeof v.showExamples === "boolean") S.showExamples = v.showExamples;
   }catch(_){}
 }
 async function runLive(more){
-  const k = LiveKeys.get(), q = $("#lv-q").value.trim() || S.live.q, zip = ($("#lv-zip").value.replace(/\D/g, "") || homeZip()).slice(0, 5);
-  if (!q){ S.live.status = {msg:"Type what kind of job to look for, like “customer support” or “barista”."}; return renderLive(); }
+  const k = LiveKeys.get();
   if (!k.jsearch && !(k.azid && k.azkey)){ S.live.status = {msg:"Add a JSearch or Adzuna key under My resume first."}; return renderLive(); }
+  const qs = liveQueries();
+  if (!qs.length){ S.live.status = {msg:"Turn on at least one search in the filters."}; return renderLive(); }
   const page = more ? S.live.page + 1 : 1;
-  const on = S.searches.filter(x => x.on);
-  const remoteToo = on.some(x => !x.arr.length || x.arr.includes("remote"));
-  const dist = Math.max(25, ...on.map(x => x.locs.length ? x.dist : 0));
-  const place = zipInfo(zip)?.place || zip;
-  S.live = {...S.live, q, zip, busy:true, page, status:{}};
+  S.live = {...S.live, busy:true, page, status:{}};
   renderLive();
+  const per = {};
   const tasks = [];
-  if (k.jsearch) tasks.push(searchJSearch(k.jsearch, q, place, remoteToo, page).then(r => ["JSearch", r]));
-  if (k.azid && k.azkey) tasks.push(searchAdzuna(k.azid, k.azkey, q, zip, dist, remoteToo, page).then(r => ["Adzuna", r]));
+  for (const c of qs){
+    if (k.jsearch) tasks.push(searchJSearch(k.jsearch, c, page).then(r => ["JSearch", r]));
+    if (k.azid && k.azkey) tasks.push(searchAdzuna(k.azid, k.azkey, c, page).then(r => ["Adzuna", r]));
+  }
   const results = await Promise.all(tasks);
+  for (const [name, r] of results){
+    per[name] = per[name] || {name, n:0, error:""};
+    per[name].n += r.jobs.length;
+    if (r.error) per[name].error = r.error;
+  }
   const fresh = results.flatMap(([, r]) => r.jobs);
-  // Drop duplicates across sources (same title at the same company)
   const seen = new Set(), merged = [];
   for (const j of [...fresh, ...(more ? S.liveJobs : [])]){
     const key = (j.title + "|" + j.company).toLowerCase().replace(/[^a-z0-9|]/g, "");
@@ -714,7 +739,7 @@ async function runLive(more){
   S.liveJobs = merged;
   if (fresh.length) S.showExamples = false;
   S.live.busy = false;
-  S.live.status = {per:results.map(([name, r]) => ({name, n:r.jobs.length, error:r.error}))};
+  S.live.status = {per:Object.values(per), asked:qs.map(describeQuery)};
   saveLive(); renderLive(); updateCounts(); renderList();
 }
 function renderLive(){
@@ -724,23 +749,21 @@ function renderLive(){
     el.innerHTML = `<div class="label">Live jobs</div><p class="hint">Live search from LinkedIn, Indeed, ZipRecruiter and more works on your web version at <a href="https://izzybf.github.io/carearz/" target="_blank" rel="noopener" style="color:var(--accent)">izzybf.github.io/carearz</a>. This Claude version can't reach outside job services.</p>`;
     return;
   }
-  const st = S.live.status || {};
+  const st = S.live.status || {}, qs = liveQueries();
   el.innerHTML = `
-    <div class="label">Search live jobs · LinkedIn, Indeed, ZipRecruiter and more</div>
+    <div class="label">Live jobs · LinkedIn, Indeed, ZipRecruiter and more</div>
     <div class="live-row">
-      <input type="text" id="lv-q" placeholder="What job? e.g. customer support" value="${esc(S.live.q)}" aria-label="What job">
-      <input type="text" id="lv-zip" class="zip num" inputmode="numeric" maxlength="5" placeholder="${esc(homeZip())}" value="${esc(S.live.zip)}" aria-label="Near zip code">
-      <button type="button" class="btn primary" id="lv-go" ${S.live.busy ? "disabled" : ""}>${S.live.busy ? "Searching…" : "Search"}</button>
+      <button type="button" class="btn primary" id="lv-go" ${S.live.busy || !hasKey ? "disabled" : ""}>${S.live.busy ? "Searching…" : "Find live jobs for my searches"}</button>
       ${S.liveJobs.length && !S.live.busy ? `<button type="button" class="btn small" id="lv-more">Load more</button>` : ""}
     </div>
+    <p class="hint">${qs.length ? "Will look for " + qs.map(c => esc(describeQuery(c))).join(", ") + ". Change your searches' keywords and filters to change this." : "Turn on a search in the filters to look for live jobs."}</p>
     <div class="live-status">
       ${!hasKey ? `<span>Add a free JSearch or Adzuna key under <button type="button" class="btn ghost small" data-goto-profile="1" style="padding:0 4px">My resume</button> to search live listings.</span>` : ""}
       ${st.msg ? `<span>${esc(st.msg)}</span>` : ""}
       ${(st.per || []).map(p => p.error ? `<span class="bad">${esc(p.error)}</span>` : `<span>${esc(p.name)}: ${p.n} results</span>`).join("")}
       ${S.liveJobs.length ? `<span>${S.liveJobs.length} live jobs loaded · <button type="button" class="btn ghost small" id="lv-clear" style="padding:0 4px">Clear</button></span>` : ""}
       <label class="toggle" style="font-size:12.5px"><input type="checkbox" id="lv-ex" ${S.showExamples ? "checked" : ""}> Include example jobs</label>
-    </div>
-    <p class="hint">Live results come in broadly for what you type, then your filters narrow them down. Each search uses your monthly free requests.</p>`;
+    </div>`;
 }
 function bindLive(){
   const el = $("#live");
@@ -751,7 +774,6 @@ function bindLive(){
     if (t.id === "lv-clear"){ S.liveJobs = []; S.showExamples = true; S.live.status = {}; saveLive(); renderLive(); updateCounts(); renderList(); return; }
     if (t.dataset.gotoProfile) setView("profile");
   });
-  el.addEventListener("keydown", e => { if ((e.target.id === "lv-q" || e.target.id === "lv-zip") && e.key === "Enter"){ e.preventDefault(); runLive(false); } });
   el.addEventListener("change", e => { if (e.target.id === "lv-ex"){ S.showExamples = e.target.checked; saveLive(); updateCounts(); renderList(); } });
 }
 function renderSources(){
@@ -1004,7 +1026,7 @@ function renderFilters(){
 }
 
 function onFilterChange(rerenderFilters){
-  Store.saveMain();
+  Store.saveMain(); renderLive();
   if (rerenderFilters) renderFilters(); else updateCounts();
   renderList();
 }
