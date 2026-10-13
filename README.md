@@ -4,6 +4,8 @@ A job search app with detailed filters that generates a resume and cover letter 
 
 **Live site:** https://izzybf.github.io/carearz/
 
+**Carearz 2.0** (base resume on your profile, tailor to any pasted job description, revise with version history) lives in [`v2/`](v2/) and runs at https://izzybf.github.io/carearz/v2/.
+
 ## What it does
 
 - **Searches you can stack.** Each search has its own filters, and results show jobs that match any of them. For example: "Remote" or "Part-time within 15 miles of home".
