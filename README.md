@@ -10,6 +10,7 @@ A job search app with detailed filters that generates a resume and cover letter 
 - **Detailed filters.** Keywords and words to exclude, remote/hybrid/on-site, schedule and max hours per week, any number of US zip codes with a distance, minimum pay (hourly or yearly), experience level, benefits, industry, employer type, how recently it was posted, and a match against your resume, your hobbies, or both.
 - **Your profile.** Paste your resume, then add your skills, hobbies and home city.
 - **Tailoring.** Pick a job to get a tailored resume, a cover letter and short notes on how well you fit. You can edit, copy and download each one.
+- **Resume styles.** Choose Modern, Classic, Compact, Minimal or Sidebar, plus an accent color. The preview and the Word download use the chosen style, and you can change it on a saved application without regenerating.
 - **Applications.** Every tailored set is saved so you can track its status.
 
 - **Live jobs.** On the web version, **Find live jobs for my searches** turns each search's keywords, locations, schedule, pay and date filters into live requests, pulling real listings from [JSearch](https://rapidapi.com/letscrape-6bRBa3QguO5/api/jsearch) (Google for Jobs results, including many LinkedIn, Indeed and ZipRecruiter postings) and [Adzuna](https://developer.adzuna.com/). Both need your own free key, which you add under **My resume**. Results from the two are merged, duplicates are dropped, and then your filters narrow them down.

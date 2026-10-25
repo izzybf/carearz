@@ -166,6 +166,12 @@ input[type=range]{width:100%;accent-color:var(--accent)}
 .dot{width:8px;height:8px;border-radius:50%;background:var(--accent);animation:pulse 1.2s ease-in-out infinite}
 @keyframes pulse{50%{opacity:.25}}
 @media (prefers-reduced-motion: reduce){.dot{animation:none}}
+.paper.doc{background:#fff;color:#1b1b1b;padding:36px 40px}
+@media (max-width:640px){.paper.doc{padding:22px 18px}.paper table.rs-cols,.paper .rs-cols tbody,.paper .rs-cols tr,.paper td.rs-side,.paper td.rs-main{display:block;width:auto!important}.paper td.rs-side,.paper td.rs-main{padding:8pt 10pt!important}}
+.style-bar{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;font-size:13px;margin:0 0 10px}
+.swatches{display:flex;gap:6px}
+.swatch{width:22px;height:22px;border-radius:50%;border:2px solid var(--surface);box-shadow:0 0 0 1px var(--line);cursor:pointer;padding:0}
+.swatch[aria-pressed="true"]{box-shadow:0 0 0 2px var(--ink)}
 .paper-edit{width:100%;min-height:420px;font-family:var(--f-num);font-size:13px}
 
 /* Profile */
@@ -1239,7 +1245,7 @@ function renderDetail(){
       </div>
       <div id="g-out"></div>
     </div>`;
-  if (!g && app) S.gen = {jobId:j.id, status:"done", resume:app.resume, cover:app.cover, notes:app.notes||"", tab:"resume", edit:false, appId:app.id};
+  if (!g && app) S.gen = {jobId:j.id, status:"done", resume:app.resume, cover:app.cover, notes:app.notes||"", tab:"resume", edit:false, appId:app.id, style:app.style, accent:app.accent};
   renderGenOut();
 }
 
@@ -1261,7 +1267,70 @@ function renderGenOut(){
     </div>
     ${g.edit
       ? `<textarea class="paper-edit" id="d-text" aria-label="Edit document">${esc(text)}</textarea>`
-      : `<article class="paper" id="d-paper">${waiting ? `<div class="thinking"><span class="dot"></span>${g.tab==="resume" ? "Reading the job and your resume…" : "Waiting for the resume to finish…"}</div>` : md(text)}</article>`}`;
+      : `${styleBar(g)}<article class="paper ${g.tab !== "notes" && !waiting ? "doc" : ""}" id="d-paper">${waiting ? `<div class="thinking"><span class="dot"></span>${g.tab==="resume" ? "Reading the job and your resume…" : "Waiting for the resume to finish…"}</div>` : previewDoc(g, text)}</article>`}`;
+}
+
+/* Resume styles: one renderer and stylesheet per look, used for the on-screen preview and the Word download */
+const RSTYLES = {modern:"Modern", classic:"Classic", compact:"Compact", minimal:"Minimal", sidebar:"Sidebar"};
+const ACCENTS = {blue:"#2A5C7C", green:"#2E6B4F", burgundy:"#7A2E3A", plum:"#5B3A70", charcoal:"#333B44"};
+const defStyle = () => RSTYLES[S.profile.resumeStyle] ? S.profile.resumeStyle : "modern";
+const defAccent = () => ACCENTS[S.profile.resumeAccent] ? S.profile.resumeAccent : "blue";
+function tintOf(hex, amt = 0.1){
+  const n = parseInt(hex.slice(1), 16), mix = c => Math.round(c * amt + 255 * (1 - amt));
+  return "#" + [n >> 16, (n >> 8) & 255, n & 255].map(c => mix(c).toString(16).padStart(2, "0")).join("");
+}
+function styleCSS(style, accentKey, P){
+  const acc = ACCENTS[accentKey] || ACCENTS.blue, tint = tintOf(acc), r = `${P}.rs.rs-${style}`;
+  const base = `${r}{color:#1b1b1b;line-height:1.4}${r} p{margin:0 0 6pt}${r} ul{margin:0 0 6pt;padding-left:18pt}${r} li{margin:0 0 2pt}${r} h2{font-family:inherit;border:none}${r} h1,${r} h3{font-family:inherit}`;
+  const look = {
+    modern: `${r}{font-family:Calibri,"Segoe UI",Arial,sans-serif;font-size:10.5pt}${r} h1{font-size:26pt;color:${acc};margin:0;letter-spacing:-0.5px}${r} .rs-contact{font-size:9.5pt;color:#555;margin:2pt 0 12pt}${r} h2{font-size:10pt;text-transform:uppercase;letter-spacing:2px;color:${acc};margin:14pt 0 5pt;padding:0}${r} h3{font-size:11pt;margin:8pt 0 1pt}`,
+    classic: `${r}{font-family:Georgia,"Times New Roman",serif;font-size:11pt}${r} h1{font-size:22pt;text-align:center;letter-spacing:1px;margin:0 0 2pt;font-weight:normal;text-transform:uppercase}${r} .rs-contact{text-align:center;font-size:10pt;margin-bottom:10pt}${r} h2{font-size:11.5pt;font-variant:small-caps;text-transform:none;letter-spacing:1.5px;color:#1b1b1b;border-bottom:1px solid #1b1b1b;margin:14pt 0 5pt;padding:0 0 2pt}${r} h3{font-size:11pt;margin:8pt 0 2pt}`,
+    compact: `${r}{font-family:Arial,Helvetica,sans-serif;font-size:9.5pt;line-height:1.3}${r} h1{font-size:17pt;margin:0;color:#111}${r} .rs-contact{font-size:8.5pt;color:#444;margin:1pt 0 6pt}${r} h2{font-size:9.5pt;text-transform:uppercase;letter-spacing:1px;background:${tint};color:${acc};padding:2pt 4pt;margin:8pt 0 3pt}${r} h3{font-size:9.5pt;margin:4pt 0 1pt}${r} p,${r} ul{margin-bottom:3pt}${r} li{margin:0}`,
+    minimal: `${r}{font-family:Garamond,"EB Garamond",Georgia,serif;font-size:11.5pt;line-height:1.5}${r} h1{font-size:24pt;font-weight:normal;margin:0 0 2pt}${r} .rs-contact{font-size:10pt;color:#777;margin-bottom:18pt}${r} h2{font-size:9pt;font-weight:normal;text-transform:uppercase;letter-spacing:3px;color:#888;margin:18pt 0 6pt;padding:0}${r} h3{font-size:11.5pt;font-weight:normal;font-style:italic;margin:8pt 0 1pt}`,
+    sidebar: `${r}{font-family:Calibri,"Segoe UI",Arial,sans-serif;font-size:10pt}${r} h1{font-size:24pt;color:${acc};margin:0}${r} .rs-contact{font-size:9.5pt;color:#555;margin:2pt 0 10pt;padding-bottom:8pt;border-bottom:2px solid ${acc}}${r} table.rs-cols{width:100%;border-collapse:collapse}${r} td{font-size:inherit;color:inherit;line-height:inherit}${r} td.rs-side{width:32%;vertical-align:top;background:${tint};padding:8pt 10pt}${r} td.rs-main{vertical-align:top;padding:0 0 0 14pt}${r} h2{font-size:9.5pt;text-transform:uppercase;letter-spacing:1.5px;color:${acc};margin:12pt 0 4pt;padding:0}${r} td h2:first-child{margin-top:0}${r} h3{font-size:10.5pt;margin:6pt 0 1pt}${r} td.rs-side ul{padding-left:12pt}`
+  };
+  return base + (look[style] || look.modern);
+}
+const SIDE_SECTIONS = /skill|interest|hobb|education|certif|licen|language|tool|award|contact|volunteer/i;
+function styledDoc(text, kind, style){
+  const lines = String(text || "").replace(/\r/g, "").split("\n");
+  let i = 0; while (i < lines.length && !lines[i].trim()) i++;
+  let head = "";
+  if (/^#\s+/.test(lines[i] || "")){
+    head = `<h1>${esc(lines[i].replace(/^#\s+/, ""))}</h1>`; i++;
+    const contact = [];
+    while (i < lines.length && lines[i].trim() && lines[i].length < 120 && !/^(#|\s*[-*•]\s)/.test(lines[i]) && contact.length < 2) contact.push(lines[i++].trim());
+    if (contact.length) head += `<div class="rs-contact">${contact.map(c => md(c).replace(/^<p>|<\/p>$/g, "")).join("<br>")}</div>`;
+  }
+  const body = lines.slice(i).join("\n");
+  if (kind === "resume" && style === "sidebar"){
+    const parts = body.split(/^(?=##\s)/m), side = [], main = [];
+    for (const p of parts) (/^##\s/.test(p) && SIDE_SECTIONS.test(p.split("\n")[0]) ? side : main).push(p);
+    return `<div class="rs rs-sidebar">${head}<table class="rs-cols"><tr><td class="rs-side">${md(side.join("\n"))}</td><td class="rs-main">${md(main.join("\n"))}</td></tr></table></div>`;
+  }
+  return `<div class="rs rs-${kind === "cover" && style === "sidebar" ? "modern" : style}">${head}${md(body)}</div>`;
+}
+function previewDoc(o, text){
+  if (o.tab === "notes") return md(text);
+  const st = o.style || defStyle(), ac = o.accent || defAccent();
+  let tag = document.getElementById("rs-css");
+  if (!tag){ tag = document.createElement("style"); tag.id = "rs-css"; document.head.appendChild(tag); }
+  tag.textContent = Object.keys(RSTYLES).map(k => styleCSS(k, ac, ".paper ")).join("\n");
+  return styledDoc(text, o.tab, st);
+}
+function styleBar(o){
+  if (o.tab === "notes" || o.edit) return "";
+  const st = o.style || defStyle(), ac = o.accent || defAccent();
+  return `<div class="style-bar"><span class="muted">Style</span><div class="chips">${Object.entries(RSTYLES).map(([k, v]) => `<button type="button" class="chip" data-rstyle="${k}" aria-pressed="${st === k}">${v}</button>`).join("")}</div>
+    <span class="muted">Color</span><div class="swatches">${Object.entries(ACCENTS).map(([k, v]) => `<button type="button" class="swatch" data-raccent="${k}" aria-pressed="${ac === k}" aria-label="${k}" title="${k}" style="background:${v}"></button>`).join("")}</div></div>`;
+}
+function wordDoc(o, text){
+  const plain = `body{font-family:Georgia,serif;font-size:11pt;line-height:1.4}h1{font-size:20pt;margin:0}h2{font-size:11pt;text-transform:uppercase;letter-spacing:1px;color:#2A5C7C;border-bottom:1px solid #ccc;margin:14pt 0 4pt}h3{font-size:12pt;margin:8pt 0 2pt}ul{margin:0 0 6pt}p{margin:0 0 6pt}`;
+  const page = `@page WordSection1{size:8.5in 11in;margin:0.7in}div.WordSection1{page:WordSection1}`;
+  const notes = o.tab === "notes";
+  const css = notes ? plain : styleCSS(o.style || defStyle(), o.accent || defAccent(), "");
+  const inner = notes ? md(text) : styledDoc(text, o.tab, o.style || defStyle());
+  return `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word"><head><meta charset="utf-8"><style>${page}${css}</style></head><body><div class="WordSection1">${inner}</div></body></html>`;
 }
 
 /* Small Markdown renderer for generated documents */
@@ -1356,7 +1425,7 @@ async function generate(){
   if (opts.tone !== S.profile.tone){ S.profile.tone = opts.tone; Store.saveMain(); }
   const ctl = new AbortController();
   const prevApp = S.apps.find(a => a.job?.id === j.id);
-  S.gen = {jobId:j.id, status:"running", resume:"", cover:"", notes:"", tab:"resume", edit:false, ctl, appId:prevApp?.id};
+  S.gen = {jobId:j.id, status:"running", resume:"", cover:"", notes:"", tab:"resume", edit:false, ctl, appId:prevApp?.id, style:prevApp?.style, accent:prevApp?.accent};
   renderDetail();
   const keepOpts = {...opts};
   try{
@@ -1386,7 +1455,7 @@ function saveApp(j, g, opts){
   let app = g.appId && S.apps.find(a => a.id === g.appId);
   const now = new Date().toISOString();
   if (!app){ app = {id:"a"+uid(), job:j, status:"draft", created:now}; S.apps.unshift(app); g.appId = app.id; }
-  Object.assign(app, {job:j, resume:g.resume, cover:g.cover, notes:g.notes, updated:now, tone:opts?.tone || app.tone});
+  Object.assign(app, {job:j, resume:g.resume, cover:g.cover, notes:g.notes, updated:now, tone:opts?.tone || app.tone, style:g.style || app.style || defStyle(), accent:g.accent || app.accent || defAccent()});
   Store.putApp(app);
   renderAppsCount();
 }
@@ -1414,6 +1483,18 @@ function bindDetail(){
 async function docActions(t, g, rerender){
   if (!g) return;
   if (t.dataset.doc){ g.tab = t.dataset.doc; g.edit = false; rerender(); return; }
+  if (t.dataset.rstyle || t.dataset.raccent){
+    if (t.dataset.rstyle) g.style = S.profile.resumeStyle = t.dataset.rstyle;
+    if (t.dataset.raccent) g.accent = S.profile.resumeAccent = t.dataset.raccent;
+    Store.saveMain();
+    const app = S.apps.find(a => a.id === (g.appId || g.id));
+    if (app){
+      app.style = g.style || app.style; app.accent = g.accent || app.accent; Store.putApp(app);
+      if (S.gen && S.gen.appId === app.id && S.gen !== g){ S.gen.style = app.style; S.gen.accent = app.accent; }
+      if (S.openApp && S.openApp.id === app.id && S.openApp !== g){ S.openApp.style = app.style; S.openApp.accent = app.accent; }
+    }
+    rerender(); return;
+  }
   const j = g.job || jobById(g.jobId) || {};
   const text = g[g.tab] || "";
   const base = `${(S.profile.name||"me").replace(/\s+/g,"-")}_${(j.company||"job").replace(/[^\w]+/g,"-")}_${g.tab === "cover" ? "cover-letter" : g.tab === "notes" ? "fit-notes" : "resume"}`;
@@ -1428,7 +1509,7 @@ async function docActions(t, g, rerender){
     if (!dl){ toast("Downloads aren't available here. Use Copy instead."); return; }
     const word = t.id === "d-word";
     const data = word
-      ? `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word"><head><meta charset="utf-8"><style>body{font-family:Georgia,serif;font-size:11pt;line-height:1.4}h1{font-size:20pt;margin:0}h2{font-size:11pt;text-transform:uppercase;letter-spacing:1px;color:#2A5C7C;border-bottom:1px solid #ccc;margin:14pt 0 4pt}h3{font-size:12pt;margin:8pt 0 2pt}ul{margin:0 0 6pt}p{margin:0 0 6pt}</style></head><body>${md(text)}</body></html>`
+      ? wordDoc(g, text)
       : text;
     try{
       await dl.save({filename: base + (word ? ".doc" : ".md"), data: word ? new Blob([data], {type:"application/msword"}) : data});
@@ -1546,7 +1627,7 @@ function renderAppView(){
       <button type="button" class="btn small" id="d-md" ${!text?"disabled":""}>Download text</button>
       <button type="button" class="btn ghost small" data-tojob="${esc(o.job?.id)}">Open job</button>
     </div>
-    ${o.edit ? `<textarea class="paper-edit" id="d-text">${esc(text)}</textarea>` : `<article class="paper" id="d-paper">${md(text)}</article>`}
+    ${o.edit ? `<textarea class="paper-edit" id="d-text">${esc(text)}</textarea>` : `${styleBar(o)}<article class="paper ${o.tab !== "notes" ? "doc" : ""}" id="d-paper">${previewDoc(o, text)}</article>`}
   </div>`;
 }
 function bindApps(){
@@ -1559,7 +1640,7 @@ function bindApps(){
     const t = e.target.closest("button"); if (!t) return;
     if (t.dataset.open){
       const a = S.apps.find(x => x.id === t.dataset.open);
-      S.openApp = S.openApp?.id === a.id ? null : {id:a.id, job:a.job, resume:a.resume, cover:a.cover, notes:a.notes, tab:"resume", edit:false};
+      S.openApp = S.openApp?.id === a.id ? null : {id:a.id, job:a.job, resume:a.resume, cover:a.cover, notes:a.notes, tab:"resume", edit:false, style:a.style, accent:a.accent};
       renderApps(); if (S.openApp) $("#app-view").scrollIntoView({behavior:"smooth", block:"start"}); return;
     }
     if (t.dataset.delapp) return confirmInline(t, "Delete", () => {
@@ -1753,6 +1834,4 @@ function boot(){
 boot();
 })();
 </script>
-
-</body>
-</html>
+</body></html>
