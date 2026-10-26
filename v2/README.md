@@ -8,6 +8,7 @@ Keep one base resume on your profile, paste any job description, and get a resum
 - **Tailor for a job.** Paste a job posting (and optionally a note like "emphasize my volunteer leadership"). Claude writes a tailored resume, a cover letter and short fit notes, using only facts from your resume.
 - **Iterate.** Ask for changes ("make it shorter", "lead with the analytics project"), aimed at the resume, the cover letter or both. Every revision and every hand edit is saved as a new version.
 - **Compare versions.** Switch between versions and turn on "Show changes" to see what was added and removed.
+- **Resume styles.** Pick Modern, Classic, Compact, Minimal or Sidebar and an accent color above the resume. The preview and the Word download both use it, and you can change it any time without regenerating.
 - **Export.** Copy, or download as Word (.docx) or Markdown.
 
 ## Running it
