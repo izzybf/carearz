@@ -705,6 +705,24 @@ async function toDocx(md, kind, style = "modern", accentKey = "cobalt"){
   const doc = new D.Document({sections:[{properties:{page:{margin:{top:900, bottom:900, left:1000, right:1000}}}, children:kids}]});
   return D.Packer.toBlob(doc);
 }
+// PDF: print just the styled document from a hidden frame; the browser's "Save as PDF" keeps real, selectable text
+function printPdf(app, text, kind){
+  const old = document.getElementById("pdf-frame"); if (old) old.remove();
+  const f = document.createElement("iframe");
+  f.id = "pdf-frame"; f.title = "PDF"; f.setAttribute("aria-hidden", "true");
+  f.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden";
+  const name = fileBase(app, kind);
+  f.srcdoc = `<!doctype html><html><head><meta charset="utf-8"><title>${esc(name)}</title><style>@page{size:letter;margin:0.6in}html,body{margin:0;background:#fff}*{-webkit-print-color-adjust:exact;print-color-adjust:exact}${styleCSS(appStyle(app), appAccent(app), "")}.rs h2,.rs h3{break-after:avoid}.rs li{break-inside:avoid}</style></head><body>${styledDoc(text, kind, appStyle(app))}</body></html>`;
+  f.onload = () => {
+    const w = f.contentWindow, prevTitle = document.title;
+    document.title = name; // some browsers name the PDF after the top page's title
+    const done = () => { document.title = prevTitle; setTimeout(() => f.remove(), 500); };
+    w.addEventListener("afterprint", done, {once:true});
+    try{ w.focus(); w.print(); toast('Choose "Save as PDF" in the print window'); }
+    catch(_){ done(); toast("This browser blocked printing here. Use Word instead, or open the app in its own tab."); }
+  };
+  document.body.appendChild(f);
+}
 function fileBase(app, kind){
   const who = (S.profile.name || "").trim();
   const parts = [who, app.company, kind === "cover" ? "Cover letter" : kind === "notes" ? "Fit notes" : "Resume"].filter(Boolean);
@@ -931,7 +949,7 @@ function viewApp(app){
         <div class="doc-tabs" role="tablist" aria-label="Document">
           ${["resume","cover","notes"].map(k => `<button role="tab" data-doc="${k}" aria-selected="${S.doc === k}">${docLabel[k]}</button>`).join("")}
         </div>
-        ${v && !busy && S.doc !== "notes" && !S.editing ? `<button class="btn sm" data-act="copy">Copy</button><button class="btn sm" data-act="dl-docx">Word</button><button class="btn sm" data-act="dl-md">Markdown</button><button class="btn sm" data-act="edit">Edit</button>` : ""}
+        ${v && !busy && S.doc !== "notes" && !S.editing ? `<button class="btn sm" data-act="copy">Copy</button><button class="btn sm" data-act="dl-pdf">PDF</button><button class="btn sm" data-act="dl-docx">Word</button><button class="btn sm" data-act="dl-md">Markdown</button><button class="btn sm" data-act="edit">Edit</button>` : ""}
       </div>
       ${vs.length && !busy ? `<div class="versions"><span class="label" style="margin-right:4px">Version</span>${chips}
         ${prev && S.doc !== "notes" && !S.editing ? `<label class="toggle"><input type="checkbox" id="compare" ${S.compare ? "checked" : ""}> Show changes from v${prev.n}</label>` : ""}</div>` : ""}
@@ -1020,6 +1038,7 @@ function wire(){
         }catch(err){ if (err?.code !== "declined") toast(err?.code === "unavailable" ? "Downloads aren't available here. Use Copy instead." : "Couldn't create the file. Use Copy instead."); }
         return;
       }
+      case "dl-pdf": return printPdf(app, text, S.doc);
       case "delete":
         $("#confirmDel").innerHTML = `<div class="notice err row" style="margin-bottom:12px">Delete ${esc(app.company)} and all ${app.versions.length} version${app.versions.length === 1 ? "" : "s"}? <button class="btn sm danger" data-confirm="yes">Delete</button><button class="btn sm ghost" data-confirm="no">Keep</button></div>`;
         $$("[data-confirm]").forEach(b => b.addEventListener("click", () => {
