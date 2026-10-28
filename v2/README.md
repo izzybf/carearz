@@ -5,6 +5,7 @@ Keep one base resume on your profile, paste any job description, and get a resum
 ## What it does
 
 - **Base resume on your profile.** Upload a PDF, Word (.docx) or text file, or paste the text. It's saved to your profile and every application starts from it.
+- **Other details.** Under your base resume, keep anything else that might matter for some jobs (projects, volunteering, availability, relocation). Claude uses an item only when it fits the job.
 - **Tailor for a job.** Paste a job posting (and optionally a note like "emphasize my volunteer leadership"). Claude writes a tailored resume, a cover letter and short fit notes, using only facts from your resume.
 - **Iterate.** Ask for changes ("make it shorter", "lead with the analytics project"), aimed at the resume, the cover letter or both. Every revision and every hand edit is saved as a new version.
 - **Compare versions.** Switch between versions and turn on "Show changes" to see what was added and removed.

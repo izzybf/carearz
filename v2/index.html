@@ -273,7 +273,7 @@ function loadScript(src){
 /* ---------- State ---------- */
 const S = {
   view:"tailor",
-  profile:{name:"", resume:"", fileName:"", updatedAt:0},
+  profile:{name:"", resume:"", extra:"", fileName:"", updatedAt:0},
   apps:[],             // {id, company, role, jd, focus, createdAt, updatedAt, versions:[...]}
   sel:null,            // open application id, or "new"
   doc:"resume",        // resume | cover | notes
@@ -410,10 +410,11 @@ function errText(e){
 
 /* ---------- Prompts ---------- */
 const RULES = `Rules you must follow:
-- Use only facts from the candidate's base resume (and anything the candidate tells you in their requests). Never invent employers, job titles, dates, degrees, certifications, tools, numbers or achievements. You may reword, reorder, regroup, merge and cut.
+- Use only facts from the candidate's base resume, their other details (if given), and anything the candidate tells you in their requests. Never invent employers, job titles, dates, degrees, certifications, tools, numbers or achievements. You may reword, reorder, regroup, merge and cut.
 - Mirror the job description's language and priorities wherever the candidate's real experience supports it, so the resume reads well to a recruiter and to applicant tracking systems.
 - Resume format, in Markdown: "# Full Name" on the first line, then one plain line of contact details separated by " | ", then sections as "## Section" (for example Summary, Experience, Skills, Education). Each job is "### Title, Company | Location | Dates" followed by "- " bullets. Use **bold** sparingly. No tables, no images, no HTML. Aim for one page of content for early-career candidates and at most two pages otherwise.
 - Cover letter format: plain paragraphs separated by blank lines. Open with a greeting to the hiring team or manager at the company (use a name only if the job description gives one), 250 to 400 words, specific to this role and company, closing with "Sincerely," and the candidate's name on the next line. No date or address block. Don't use bracketed placeholders unless something essential is missing.
+- Other details are extra background the candidate keeps on file (for example projects, volunteering, availability, work authorization, relocation, preferences). Use an item only where it helps with this particular job, in the resume or the cover letter, and leave the rest out. Never put salary expectations or sensitive personal information on the resume; mention them in the cover letter only if the job description asks for them.
 - Fit notes: 3 to 6 short "- " bullets covering how well the candidate fits, real gaps against the requirements, and what you chose to emphasize.`;
 
 function genPrompt(profile, jd, focus){
@@ -424,6 +425,7 @@ ${RULES}
 <base_resume>
 ${profile.resume}
 </base_resume>
+${profile.extra?.trim() ? `\n<other_details>\n${profile.extra.trim()}\n</other_details>\n` : ""}
 
 <job_description>
 ${jd}
@@ -454,6 +456,7 @@ ${RULES}
 <base_resume>
 ${profile.resume}
 </base_resume>
+${profile.extra?.trim() ? `\n<other_details>\n${profile.extra.trim()}\n</other_details>\n` : ""}
 
 <job_description>
 ${app.jd}
@@ -836,6 +839,9 @@ function viewProfile(){
       <label class="field"><span>Your name</span><input class="input" id="pname" value="${esc(p.name)}" placeholder="As it should appear on your resume" autocomplete="name"></label>
       <label class="field"><span>Resume text <span class="hint num">${words} words</span></span>
         <textarea class="input resume-text" id="ptext" placeholder="Paste your resume here, or upload a file above. Check that the text came through cleanly; this is exactly what Claude reads.">${esc(p.resume)}</textarea></label>
+      <label class="field"><span>Other details <span class="hint">Optional</span></span>
+        <small class="hint">Anything else that might help with some applications but doesn't belong on every resume: side projects, volunteering, certifications in progress, availability, work authorization, willingness to relocate. Claude pulls from this only when it fits the job.</small>
+        <textarea class="input" id="pextra" rows="7" placeholder="e.g. Can start in two weeks. Open to relocating to Denver. Volunteer bike mechanic at a community shop since 2022. Finishing a Google UX certificate in December.">${esc(p.extra || "")}</textarea></label>
       <div class="row"><button class="btn primary" data-act="save-profile">Save to profile</button><span class="hint" id="pstatus"></span></div>
     </section>
     <div class="stack">
@@ -1049,6 +1055,7 @@ function wire(){
       case "save-profile": {
         S.profile.name = $("#pname").value.trim();
         S.profile.resume = tidy($("#ptext").value);
+        S.profile.extra = $("#pextra").value.trim();
         S.profile.updatedAt = Date.now();
         try{ await Store.saveProfile(); toast("Saved to your profile"); }
         catch(err){ console.warn(err); toast("Saved in this browser. Couldn't reach your account."); }
