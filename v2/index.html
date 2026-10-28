@@ -124,7 +124,7 @@ details.jd pre{white-space:pre-wrap;font-family:var(--f-ui);font-size:13.5px;bac
 .work{display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:20px;align-items:start}
 .work > section{background:var(--surface);border-radius:var(--r-lg);padding:22px;min-width:0}
 .doc-bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
-.doc-tabs{display:flex;gap:6px;flex-wrap:wrap;margin-right:auto}
+.doc-tabs{display:flex;gap:6px;flex-wrap:wrap;margin-right:auto;margin-bottom:4px}
 .doc-tabs button{border:2px solid var(--ink);background:transparent;padding:6px 16px;min-height:40px;border-radius:999px;cursor:pointer;color:var(--ink);font-weight:500;text-transform:lowercase}
 .doc-tabs button[aria-selected="true"]{background:var(--tomato);border-color:var(--tomato);color:var(--on-block);font-weight:700}
 .versions{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
@@ -164,6 +164,23 @@ details.jd pre{white-space:pre-wrap;font-family:var(--f-ui);font-size:13.5px;bac
 .swatches{display:flex;gap:6px}
 .swatch{width:26px;height:26px;border-radius:50%;border:3px solid var(--surface);box-shadow:0 0 0 1px var(--line);cursor:pointer;padding:0}
 .swatch[aria-pressed="true"]{box-shadow:0 0 0 2px var(--ink)}
+
+/* Document tools: Edit and Check spelling are outlined with icons, set apart from the download pills */
+.dl-group,.tool-group{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.tool-group{padding-left:10px;margin-left:4px;border-left:2px solid var(--line)}
+.btn.tool{background:transparent;border:2px solid var(--ink);color:var(--ink);padding:5px 14px}
+.btn.tool:hover{background:var(--ink);color:var(--bg)}
+.btn.tool svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.spell-panel{background:var(--bg);border-radius:var(--r);padding:12px 14px;margin:0 0 12px;font-size:14px;display:flex;flex-direction:column;gap:8px}
+.spell-panel[role="status"],.spell-panel.err{flex-direction:row;align-items:center;flex-wrap:wrap;gap:8px}
+.spell-panel.err{background:var(--danger-soft);color:var(--danger)}
+.spell-panel.ok{background:var(--good-soft);color:var(--good)}
+.spell-panel ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;max-height:260px;overflow:auto}
+.spell-panel li{display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--surface);border-radius:10px;padding:6px 6px 6px 12px}
+.spell-panel del{color:var(--danger)}
+.spell-panel ins{color:var(--good);text-decoration:none;font-weight:700}
+.spell-panel small{color:var(--muted)}
+.paper mark.sp{background:none;color:inherit;text-decoration:underline wavy #D0342C;text-decoration-skip-ink:none;text-underline-offset:3px}
 
 /* Revision panel: the cobalt block */
 .revise{position:sticky;top:calc(env(safe-area-inset-top,0px) + 84px);display:flex;flex-direction:column;gap:14px}
@@ -286,7 +303,8 @@ const S = {
   busy:null,           // {appId, kind, text}
   error:"",
   draftJd:"", draftFocus:"", draftReq:"",
-  keyOpen:false
+  keyOpen:false,
+  spell:null          // {key, status, issues[], error}
 };
 const curApp = () => S.apps.find(a => a.id === S.sel) || null;
 
@@ -832,6 +850,88 @@ async function revise(request){
   finally{ S.busy = null; aborter = null; render(); }
 }
 
+/* ---------- Spelling: Claude proofreads the open document; fixes are saved as a new version ---------- */
+const curVer = app => app ? (S.ver === null ? app.versions[app.versions.length - 1] : app.versions[S.ver]) : null;
+const spellKey = (app, v) => app && v ? `${app.id}|${v.id}|${S.doc}` : "";
+const reEsc = s => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const wordRe = (w, flags = "gu") => new RegExp("(?<![\\p{L}\\p{N}])" + reEsc(w) + "(?![\\p{L}\\p{N}])", flags);
+function spellPrompt(text, kind){
+  return `Proofread this ${kind === "cover" ? "cover letter" : "resume"} for spelling mistakes, typos, doubled words and clear grammar slips.
+
+Do not flag names of people, companies, schools, products or places, technical terms, acronyms, Markdown symbols (#, -, **), or style choices. Use the variety of English the document already uses (US English if unclear). Only flag things that are actually wrong.
+
+<document>
+${text}
+</document>
+
+For each problem give "wrong": the exact text as it appears in the document (a word or short phrase, copied character for character), "right": the corrected text, and "note": two or three words such as "spelling" or "doubled word". At most 30 items.
+
+Reply in exactly this format and nothing else:
+<issues>[{"wrong":"...","right":"...","note":"..."}]</issues>
+If there are no problems, reply <issues>[]</issues>.`;
+}
+async function checkSpelling(){
+  const app = curApp(), v = curVer(app); if (!v) return;
+  const sample = await getSample();
+  if (!sample){ S.error = "To check spelling here, add your Claude API key under My resume."; return render(); }
+  const key = spellKey(app, v), text = S.doc === "cover" ? v.cover : v.resume;
+  S.spell = {key, status:"running", issues:[]}; render();
+  try{
+    const {text:out} = await sample(spellPrompt(text, S.doc), {cache:false, modelTier:"default"});
+    let issues = []; try{ issues = JSON.parse(tag(out, "issues") || "[]"); }catch(_){ throw {code:"upstream_error", message:"The spelling check came back in an unexpected format."}; }
+    issues = (Array.isArray(issues) ? issues : []).filter(x => x && typeof x.wrong === "string" && typeof x.right === "string" && x.wrong.trim() && x.wrong !== x.right && wordRe(x.wrong, "u").test(text));
+    if (S.spell?.key === key) S.spell = {key, status:"done", issues};
+  }catch(err){ if (S.spell?.key === key) S.spell = {key, status:"error", issues:[], error:err?.message && err.code === "upstream_error" ? err.message : errText(err)}; }
+  render();
+}
+function applySpelling(which){
+  const app = curApp(), base = curVer(app), sp = S.spell; if (!base || !sp) return;
+  const fix = which === "all" ? sp.issues : [sp.issues[which]].filter(Boolean);
+  const k = S.doc === "cover" ? "cover" : "resume";
+  let t = base[k];
+  for (const x of fix) t = t.replace(wordRe(x.wrong), () => x.right);
+  if (t === base[k]) return;
+  const v = {...base, id:uid(), n:app.versions.length + 1, [k]:t, request:"", summary:fix.length === 1 ? `Fixed "${fix[0].wrong}" → "${fix[0].right}"` : `Fixed ${fix.length} spelling mistakes`, target:k, by:"you", at:Date.now(), from:base.n};
+  app.versions.push(v); app.updatedAt = v.at; S.ver = null;
+  Store.putApp(app, v);
+  const left = sp.issues.filter(x => !fix.includes(x) && wordRe(x.wrong, "u").test(t));
+  S.spell = {key:spellKey(app, v), status:"done", issues:left, fixed:(sp.fixed || 0) + fix.length};
+  toast("Saved as v" + v.n);
+  render();
+}
+function spellPanel(app, v){
+  const sp = S.spell;
+  if (!sp || sp.key !== spellKey(app, v)) return "";
+  if (sp.status === "running") return `<div class="spell-panel" role="status"><span class="spin"></span> Checking spelling…</div>`;
+  if (sp.status === "error") return `<div class="spell-panel err" role="alert">${esc(sp.error || "Couldn't check spelling.")} <button class="btn sm ghost" data-spell="close">Dismiss</button></div>`;
+  if (!sp.issues.length) return `<div class="spell-panel ok" role="status">${sp.fixed ? "All fixed. " : ""}No spelling mistakes found. <button class="btn sm ghost" data-spell="close">Dismiss</button></div>`;
+  return `<div class="spell-panel" role="region" aria-label="Spelling">
+    <div class="row"><b>${sp.issues.length} possible mistake${sp.issues.length === 1 ? "" : "s"}</b><span style="flex:1"></span><button class="btn sm primary" data-spell="all">Fix all</button><button class="btn sm ghost" data-spell="close">Dismiss</button></div>
+    <ul>${sp.issues.map((x, i) => `<li><span><del>${esc(x.wrong)}</del> → <ins>${esc(x.right)}</ins>${x.note ? ` <small>${esc(x.note)}</small>` : ""}</span><button class="btn sm" data-spell="${i}">Fix</button></li>`).join("")}</ul>
+  </div>`;
+}
+// Highlight flagged words in the rendered document
+function markSpelling(root, issues){
+  if (!root || !issues.length) return;
+  const re = new RegExp(issues.map(x => wordRe(x.wrong).source).join("|"), "gu");
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT), nodes = [];
+  while (walker.nextNode()) nodes.push(walker.currentNode);
+  for (const n of nodes){
+    const s = n.nodeValue; re.lastIndex = 0;
+    if (!re.test(s)) continue;
+    re.lastIndex = 0;
+    const frag = document.createDocumentFragment(); let last = 0, m;
+    while ((m = re.exec(s))){
+      if (m.index > last) frag.appendChild(document.createTextNode(s.slice(last, m.index)));
+      const mk = document.createElement("mark"); mk.className = "sp"; mk.textContent = m[0];
+      const hit = issues.find(x => x.wrong === m[0]); if (hit) mk.title = "Suggested: " + hit.right;
+      frag.appendChild(mk); last = re.lastIndex;
+    }
+    if (last < s.length) frag.appendChild(document.createTextNode(s.slice(last)));
+    n.parentNode.replaceChild(frag, n);
+  }
+}
+
 function saveManualEdit(text){
   const app = curApp(); if (!app) return;
   const base = S.ver === null ? app.versions[app.versions.length - 1] : app.versions[S.ver];
@@ -878,10 +978,10 @@ function viewProfile(){
       </label>
       <label class="field"><span>Your name</span><input class="input" id="pname" value="${esc(p.name)}" placeholder="As it should appear on your resume" autocomplete="name"></label>
       <label class="field"><span>Resume text <span class="hint num">${words} words</span></span>
-        <textarea class="input resume-text" id="ptext" placeholder="Paste your resume here, or upload a file above. Check that the text came through cleanly; this is exactly what Claude reads.">${esc(p.resume)}</textarea></label>
+        <textarea class="input resume-text" id="ptext" spellcheck="true" placeholder="Paste your resume here, or upload a file above. Check that the text came through cleanly; this is exactly what Claude reads.">${esc(p.resume)}</textarea></label>
       <label class="field"><span>Other details <span class="hint">Optional</span></span>
         <small class="hint">Anything else that might help with some applications but doesn't belong on every resume: side projects, volunteering, certifications in progress, availability, work authorization, willingness to relocate. Claude pulls from this only when it fits the job.</small>
-        <textarea class="input" id="pextra" rows="7" placeholder="e.g. Can start in two weeks. Open to relocating to Denver. Volunteer bike mechanic at a community shop since 2022. Finishing a Google UX certificate in December.">${esc(p.extra || "")}</textarea></label>
+        <textarea class="input" id="pextra" spellcheck="true" rows="7" placeholder="e.g. Can start in two weeks. Open to relocating to Denver. Volunteer bike mechanic at a community shop since 2022. Finishing a Google UX certificate in December.">${esc(p.extra || "")}</textarea></label>
       <div class="row"><button class="btn primary" data-act="save-profile">Save to profile</button><span class="hint" id="pstatus"></span></div>
     </section>
     <div class="stack">
@@ -928,9 +1028,9 @@ function viewNew(){
     ${noResume ? `<div class="notice">Start by adding your base resume. <button class="btn sm" data-act="go-profile">Go to My resume</button></div>` : ""}
     ${S.error ? `<div class="notice err" role="alert">${esc(S.error)}</div>` : ""}
     <label class="field"><span>Job description</span>
-      <textarea class="input" id="jd" rows="14" placeholder="Paste the whole posting: title, company, responsibilities, requirements, nice-to-haves.">${esc(S.draftJd)}</textarea></label>
+      <textarea class="input" id="jd" spellcheck="true" rows="14" placeholder="Paste the whole posting: title, company, responsibilities, requirements, nice-to-haves.">${esc(S.draftJd)}</textarea></label>
     <label class="field"><span>Anything Claude should know? <span class="hint">Optional</span></span>
-      <input class="input" id="focus" value="${esc(S.draftFocus)}" placeholder="e.g. Emphasize my volunteer leadership; I'm relocating to Denver in June"></label>
+      <input class="input" id="focus" spellcheck="true" value="${esc(S.draftFocus)}" placeholder="e.g. Emphasize my volunteer leadership; I'm relocating to Denver in June"></label>
     <div class="row"><button class="btn primary" data-act="generate" ${noResume ? "disabled" : ""}>Write resume and cover letter</button><span class="hint">Takes about a minute.</span></div>
   </section>`;
 }
@@ -960,7 +1060,7 @@ function viewApp(app){
   } else if (!v){
     body = `<div class="paper"><p class="muted">No documents yet.</p></div>`;
   } else if (S.editing && S.doc !== "notes"){
-    body = `<div class="paper"><textarea id="editor" aria-label="Edit ${docLabel[S.doc]}">${esc(S.doc === "cover" ? v.cover : v.resume)}</textarea></div>
+    body = `<div class="paper"><textarea id="editor" spellcheck="true" lang="en" aria-label="Edit ${docLabel[S.doc]}">${esc(S.doc === "cover" ? v.cover : v.resume)}</textarea></div>
       <div class="row" style="margin-top:10px"><button class="btn primary" data-act="save-edit">Save as new version</button><button class="btn ghost" data-act="cancel-edit">Cancel</button><span class="hint">Markdown: # name, ## section, ### job, - bullet, **bold**</span></div>`;
   } else if (S.compare && prev && S.doc !== "notes"){
     const k = S.doc === "cover" ? "cover" : "resume";
@@ -969,7 +1069,7 @@ function viewApp(app){
   } else {
     const md = S.doc === "cover" ? v.cover : S.doc === "notes" ? (v.notes || "No notes for this version.") : v.resume;
     body = S.doc === "notes" ? `<div class="paper">${mdToHtml(md)}</div>`
-      : `${styleBar(app)}<div class="paper doc ${S.doc === "cover" ? "cover" : ""}">${styledDoc(md, S.doc, appStyle(app))}</div>`;
+      : `${styleBar(app)}${spellPanel(app, v)}<div class="paper doc ${S.doc === "cover" ? "cover" : ""}" id="paper">${styledDoc(md, S.doc, appStyle(app))}</div>`;
   }
 
   const chips = vs.map((x, i) => `<button class="vchip ${x.by === "you" ? "edited" : ""}" data-ver="${i}" aria-pressed="${i === idx && !busy}" title="${esc(x.request || x.summary || "First draft")}">v${x.n}</button>`).join("");
@@ -995,7 +1095,7 @@ function viewApp(app){
         <div class="doc-tabs" role="tablist" aria-label="Document">
           ${["resume","cover","notes"].map(k => `<button role="tab" data-doc="${k}" aria-selected="${S.doc === k}">${docLabel[k]}</button>`).join("")}
         </div>
-        ${v && !busy && S.doc !== "notes" && !S.editing ? `<button class="btn sm" data-act="copy">Copy</button><button class="btn sm" data-act="dl-pdf">PDF</button><button class="btn sm" data-act="dl-docx">Word</button><button class="btn sm" data-act="dl-md">Markdown</button><button class="btn sm" data-act="edit">Edit</button>` : ""}
+        ${v && !busy && S.doc !== "notes" && !S.editing ? `<div class="dl-group"><button class="btn sm" data-act="copy">Copy</button><button class="btn sm" data-act="dl-pdf">PDF</button><button class="btn sm" data-act="dl-docx">Word</button><button class="btn sm" data-act="dl-md">Markdown</button></div><div class="tool-group"><button class="btn sm tool" data-act="edit"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16v4z"/><path d="M13.5 6.5l4 4"/></svg>Edit</button><button class="btn sm tool" data-act="spell" ${S.spell?.status === "running" ? "disabled" : ""}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h9M4 12h6M4 17h5"/><path d="M13 16l3 3 5-6"/></svg>Check spelling</button></div>` : ""}
       </div>
       ${vs.length && !busy ? `<div class="versions"><span class="label" style="margin-right:4px">Version</span>${chips}
         ${prev && S.doc !== "notes" && !S.editing ? `<label class="toggle"><input type="checkbox" id="compare" ${S.compare ? "checked" : ""}> Show changes from v${prev.n}</label>` : ""}</div>` : ""}
@@ -1007,7 +1107,7 @@ function viewApp(app){
         <div class="seg" role="group" aria-label="Apply to">
           ${[["both","Both"],["resume","Resume"],["cover","Cover letter"]].map(([k, l]) => `<button data-target="${k}" aria-pressed="${S.target === k}">${l}</button>`).join("")}
         </div>
-        <textarea class="input" id="req" rows="4" placeholder="e.g. Put the data analysis project first and mention I can start in two weeks">${esc(S.draftReq)}</textarea>
+        <textarea class="input" id="req" spellcheck="true" rows="4" placeholder="e.g. Put the data analysis project first and mention I can start in two weeks">${esc(S.draftReq)}</textarea>
         <div class="chips">${QUICK.map(q => `<button class="chip" data-quick="${esc(q)}">${esc(q)}</button>`).join("")}</div>
         <button class="btn primary" data-act="revise" ${busy || !v ? "disabled" : ""}>${busy ? '<span class="spin"></span> Working…' : `Revise${S.ver !== null && S.ver !== vs.length - 1 ? " from v" + v.n : ""}`}</button>
         <p class="hint">Each revision is saved as a new version, so you can always go back.</p>
@@ -1047,6 +1147,13 @@ function wire(){
     Store.putApp(app); Store.saveProfile().catch(() => {});
     render();
   });
+  on("[data-spell]", "click", e => {
+    const w = e.currentTarget.dataset.spell;
+    if (w === "close"){ S.spell = null; return render(); }
+    applySpelling(w === "all" ? "all" : +w);
+  });
+  { const app = curApp(), sp = S.spell;
+    if (sp?.status === "done" && !S.editing && !S.compare && sp.key === spellKey(app, curVer(app))) markSpelling($("#paper .rs"), sp.issues); }
   on("[data-target]", "click", e => { S.target = e.currentTarget.dataset.target; render(); });
   on("[data-quick]", "click", e => {
     const q = e.currentTarget.dataset.quick;
@@ -1068,6 +1175,7 @@ function wire(){
       case "revise": return revise(S.draftReq);
       case "stop": aborter?.abort(); return;
       case "edit": S.editing = true; S.compare = false; return render();
+      case "spell": S.compare = false; return checkSpelling();
       case "cancel-edit": S.editing = false; return render();
       case "save-edit": return saveManualEdit($("#editor").value);
       case "copy":
