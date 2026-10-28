@@ -518,8 +518,8 @@ function mdToHtml(md){
 }
 
 /* ---------- Resume styles: one look per style, used by the preview and the Word download ---------- */
-const RSTYLES = {modern:"Modern", classic:"Classic", compact:"Compact", minimal:"Minimal", sidebar:"Sidebar"};
-const ACCENTS = {cobalt:"#2F45C5", tomato:"#B8402C", forest:"#2E6B4F", plum:"#5B3A70", charcoal:"#333B44"};
+const RSTYLES = {modern:"Modern", classic:"Classic", compact:"Compact", minimal:"Minimal", sidebar:"Sidebar", executive:"Executive", banner:"Banner", elegant:"Elegant", bold:"Bold", technical:"Technical"};
+const ACCENTS = {cobalt:"#2F45C5", navy:"#1F3A5F", teal:"#1D6B6B", forest:"#2E6B4F", tomato:"#B8402C", rose:"#A23B5B", plum:"#5B3A70", charcoal:"#333B44"};
 const defStyle = () => RSTYLES[S.profile.resumeStyle] ? S.profile.resumeStyle : "modern";
 const defAccent = () => ACCENTS[S.profile.resumeAccent] ? S.profile.resumeAccent : "cobalt";
 const appStyle = app => RSTYLES[app?.style] ? app.style : defStyle();
@@ -536,7 +536,13 @@ function styleCSS(style, accentKey, P){
     classic: `${r}{font-family:Georgia,"Times New Roman",serif;font-size:11pt}${r} h1{font-size:22pt;text-align:center;letter-spacing:1px;margin:0 0 2pt;font-weight:normal;text-transform:uppercase}${r} .rs-contact{text-align:center;font-size:10pt;margin-bottom:10pt}${r} h2{font-size:11.5pt;font-variant:small-caps;letter-spacing:1.5px;color:#1b1b1b;border-bottom:1px solid #1b1b1b;margin:14pt 0 5pt;padding:0 0 2pt}${r} h3{font-size:11pt;margin:8pt 0 2pt}`,
     compact: `${r}{font-family:Arial,Helvetica,sans-serif;font-size:9.5pt;line-height:1.3}${r} h1{font-size:17pt;margin:0;color:#111}${r} .rs-contact{font-size:8.5pt;color:#444;margin:1pt 0 6pt}${r} h2{font-size:9.5pt;text-transform:uppercase;letter-spacing:1px;background:${tint};color:${acc};padding:2pt 4pt;margin:8pt 0 3pt}${r} h3{font-size:9.5pt;margin:4pt 0 1pt}${r} p,${r} ul{margin-bottom:3pt}${r} li{margin:0}`,
     minimal: `${r}{font-family:Garamond,"EB Garamond",Georgia,serif;font-size:11.5pt;line-height:1.5}${r} h1{font-size:24pt;font-weight:normal;margin:0 0 2pt}${r} .rs-contact{font-size:10pt;color:#777;margin-bottom:18pt}${r} h2{font-size:9pt;font-weight:normal;text-transform:uppercase;letter-spacing:3px;color:#777;margin:18pt 0 6pt;padding:0}${r} h3{font-size:11.5pt;font-weight:normal;font-style:italic;margin:8pt 0 1pt}`,
-    sidebar: `${r}{font-family:Calibri,"DM Sans",Arial,sans-serif;font-size:10pt}${r} h1{font-size:24pt;color:${acc};margin:0}${r} .rs-contact{font-size:9.5pt;color:#555;margin:2pt 0 10pt;padding-bottom:8pt;border-bottom:2px solid ${acc}}${r} table.rs-cols{width:100%;border-collapse:collapse}${r} td.rs-side{width:32%;vertical-align:top;background:${tint};padding:8pt 10pt}${r} td.rs-main{vertical-align:top;padding:0 0 0 14pt}${r} h2{font-size:9.5pt;text-transform:uppercase;letter-spacing:1.5px;color:${acc};margin:12pt 0 4pt;padding:0}${r} td h2:first-child{margin-top:0}${r} h3{font-size:10.5pt;margin:6pt 0 1pt}${r} td.rs-side ul{padding-left:12pt}`
+    sidebar: `${r}{font-family:Calibri,"DM Sans",Arial,sans-serif;font-size:10pt}${r} h1{font-size:24pt;color:${acc};margin:0}${r} .rs-contact{font-size:9.5pt;color:#555;margin:2pt 0 10pt;padding-bottom:8pt;border-bottom:2px solid ${acc}}${r} table.rs-cols{width:100%;border-collapse:collapse}${r} td.rs-side{width:32%;vertical-align:top;background:${tint};padding:8pt 10pt}${r} td.rs-main{vertical-align:top;padding:0 0 0 14pt}${r} h2{font-size:9.5pt;text-transform:uppercase;letter-spacing:1.5px;color:${acc};margin:12pt 0 4pt;padding:0}${r} td h2:first-child{margin-top:0}${r} h3{font-size:10.5pt;margin:6pt 0 1pt}${r} td.rs-side ul{padding-left:12pt}`,
+    executive: `${r}{font-family:Georgia,"Times New Roman",serif;font-size:10.5pt}${r} h1{font-size:26pt;font-weight:bold;margin:0;color:#1b1b1b}${r} .rs-contact{font-size:9.5pt;color:#555;margin:2pt 0 0}${r} .rs-head{border-bottom:3pt solid ${acc};padding-bottom:8pt;margin-bottom:6pt}${r} h2{font-size:11pt;font-weight:bold;text-transform:uppercase;letter-spacing:1px;color:${acc};border-bottom:1px solid #bbb;margin:14pt 0 5pt;padding:0 0 2pt}${r} h3{font-size:11pt;margin:8pt 0 1pt}`,
+    banner: `${r}{font-family:Calibri,"DM Sans",Arial,sans-serif;font-size:10.5pt}${r} .rs-head{background:${acc};color:#fff;padding:16pt 18pt;margin-bottom:10pt}${r} h1{font-size:26pt;color:#fff;margin:0}${r} .rs-contact{font-size:9.5pt;color:#fff;margin:3pt 0 0}${r} h2{font-size:10pt;font-weight:bold;text-transform:uppercase;letter-spacing:1.5px;color:${acc};border-bottom:2px solid ${tint};margin:14pt 0 5pt;padding:0 0 2pt}${r} h3{font-size:11pt;margin:8pt 0 1pt}`,
+    elegant: `${r}{font-family:Garamond,"EB Garamond",Georgia,serif;font-size:11.5pt;line-height:1.45}${r} h1{font-size:22pt;font-weight:normal;text-transform:uppercase;letter-spacing:4px;text-align:center;margin:0 0 2pt}${r} .rs-contact{text-align:center;font-style:italic;font-size:10.5pt;color:#555;margin-bottom:12pt}${r} h2{font-size:11.5pt;font-weight:normal;font-variant:small-caps;letter-spacing:2px;text-align:center;color:${acc};border-top:1px solid ${acc};border-bottom:1px solid ${acc};margin:14pt 0 6pt;padding:2pt 0}${r} h3{font-size:11.5pt;font-style:italic;font-weight:normal;margin:8pt 0 1pt}`,
+    bold: `${r}{font-family:Arial,Helvetica,sans-serif;font-size:10.5pt}${r} h1{font-size:34pt;font-weight:900;letter-spacing:-1px;line-height:1;margin:0;color:#111}${r} .rs-contact{font-size:10pt;color:#333;margin:4pt 0 10pt}${r} h2{font-size:12pt;font-weight:900;color:#111;border-bottom:3pt solid ${acc};margin:14pt 0 5pt;padding:0 0 2pt}${r} h3{font-size:11pt;font-weight:bold;margin:8pt 0 1pt}`,
+    technical: `${r}{font-family:Calibri,"DM Sans",Arial,sans-serif;font-size:10pt}${r} h1{font-family:Consolas,"Courier New",monospace;font-size:22pt;color:${acc};margin:0}${r} .rs-contact{font-family:Consolas,"Courier New",monospace;font-size:9pt;color:#555;margin:2pt 0 10pt}${r} h2{font-family:Consolas,"Courier New",monospace;font-size:10pt;font-weight:bold;color:${acc};border-bottom:1px dashed #bbb;margin:12pt 0 4pt;padding:0 0 2pt}${r} h2::before{content:"// "}${r} h3{font-size:10.5pt;margin:6pt 0 1pt}`
+
   };
   return base + (look[style] || look.modern);
 }
@@ -557,7 +563,7 @@ function docParts(text){
 }
 function styledDoc(text, kind, style){
   const d = docParts(text);
-  const head = d.name ? `<h1>${inline(d.name)}</h1>${d.contact.length ? `<div class="rs-contact">${d.contact.map(inline).join("<br>")}</div>` : ""}` : "";
+  const head = d.name ? `<div class="rs-head"><h1>${inline(d.name)}</h1>${d.contact.length ? `<div class="rs-contact">${d.contact.map(inline).join("<br>")}</div>` : ""}</div>` : "";
   if (kind === "resume" && style === "sidebar")
     return `<div class="rs rs-sidebar">${head}<table class="rs-cols"><tr><td class="rs-side">${mdToHtml(d.side)}</td><td class="rs-main">${mdToHtml(d.main)}</td></tr></table></div>`;
   return `<div class="rs rs-${kind === "cover" && style === "sidebar" ? "modern" : style}">${head}${mdToHtml(d.body)}</div>`;
@@ -647,7 +653,12 @@ async function toDocx(md, kind, style = "modern", accentKey = "cobalt"){
     classic: {font:"Georgia",  body:22, name:44, center:true, nameCaps:true, h2:{size:23, smallCaps:true, characterSpacing:30, bold:true, rule:"1B1B1B"}},
     compact: {font:"Arial",    body:19, name:34, h2:{size:19, color:acc, allCaps:true, bold:true, fill:tint}},
     minimal: {font:"Garamond", body:23, name:48, h2:{size:18, color:"777777", allCaps:true, characterSpacing:60}},
-    sidebar: {font:"Calibri",  body:20, name:48, nameColor:acc, h2:{size:19, color:acc, allCaps:true, characterSpacing:30, bold:true}}
+    sidebar: {font:"Calibri",  body:20, name:48, nameColor:acc, h2:{size:19, color:acc, allCaps:true, characterSpacing:30, bold:true}},
+    executive:{font:"Georgia", body:21, name:52, nameRule:{color:acc, size:24}, h2:{size:22, color:acc, allCaps:true, characterSpacing:20, bold:true, rule:"BBBBBB"}},
+    banner:  {font:"Calibri",  body:21, name:52, nameFill:acc, nameColor:"FFFFFF", contactColor:"FFFFFF", h2:{size:20, color:acc, allCaps:true, characterSpacing:30, bold:true, rule:tint, ruleSize:12}},
+    elegant: {font:"Garamond", body:23, name:44, center:true, nameCaps:true, nameBold:false, nameSpacing:80, contactItalic:true, h2:{size:23, color:acc, smallCaps:true, characterSpacing:40, align:"center", rule:acc, ruleTop:acc}},
+    bold:    {font:"Arial",    body:21, name:68, h2:{size:24, bold:true, color:"111111", rule:acc, ruleSize:24}},
+    technical:{font:"Calibri", body:20, name:44, nameFont:"Consolas", nameColor:acc, contactFont:"Consolas", h2:{size:20, bold:true, color:acc, font:"Consolas", prefix:"// ", rule:"BBBBBB", ruleStyle:"DASHED"}}
   }[style] || null;
   const lk = L || {font:"Calibri", body:21, name:36, h2:{size:22, bold:true, allCaps:true}};
   const font = lk.font, size = kind === "cover" ? Math.max(lk.body, 22) : lk.body;
@@ -666,10 +677,11 @@ async function toDocx(md, kind, style = "modern", accentKey = "cobalt"){
   const h2 = text => {
     const h = lk.h2;
     return new D.Paragraph({
-      children:runs(strip(text), {size:h.size, bold:!!h.bold, color:h.color, allCaps:h.allCaps, smallCaps:h.smallCaps, characterSpacing:h.characterSpacing}),
+      alignment:h.align === "center" ? D.AlignmentType.CENTER : undefined,
+      children:runs((h.prefix || "") + strip(text), {size:h.size, bold:!!h.bold, color:h.color, allCaps:h.allCaps, smallCaps:h.smallCaps, characterSpacing:h.characterSpacing, ...(h.font ? {font:h.font} : {})}),
       spacing:{before:style === "compact" ? 140 : 220, after:80},
       shading:h.fill ? {type:D.ShadingType.CLEAR, color:"auto", fill:h.fill} : undefined,
-      border:h.rule ? {bottom:{color:h.rule, space:1, style:D.BorderStyle.SINGLE, size:6}} : undefined
+      border:h.rule ? {bottom:{color:h.rule, space:1, style:D.BorderStyle[h.ruleStyle || "SINGLE"], size:h.ruleSize || 6}, ...(h.ruleTop ? {top:{color:h.ruleTop, space:1, style:D.BorderStyle.SINGLE, size:6}} : {})} : undefined
     });
   };
   const para = blocksList => {
@@ -688,9 +700,12 @@ async function toDocx(md, kind, style = "modern", accentKey = "cobalt"){
   const d = docParts(md);
   if (d.name && L){
     const align = lk.center ? D.AlignmentType.CENTER : undefined;
-    kids.push(new D.Paragraph({alignment:align, children:runs(strip(d.name), {bold:style !== "classic" && style !== "minimal", size:lk.name, color:lk.nameColor, allCaps:lk.nameCaps}), spacing:{after:40}}));
-    if (d.contact.length) kids.push(new D.Paragraph({alignment:align, children:d.contact.flatMap((c, i) => [...(i ? [new D.TextRun({break:1})] : []), ...runs(strip(c), {size:size - 2, color:"555555"})]), spacing:{after:200},
-      border:style === "sidebar" ? {bottom:{color:acc, space:6, style:D.BorderStyle.SINGLE, size:12}} : undefined}));
+    const fill = lk.nameFill ? {type:D.ShadingType.CLEAR, color:"auto", fill:lk.nameFill} : undefined;
+    const rule = lk.nameRule ? {bottom:{color:lk.nameRule.color, space:6, style:D.BorderStyle.SINGLE, size:lk.nameRule.size}}
+      : style === "sidebar" ? {bottom:{color:acc, space:6, style:D.BorderStyle.SINGLE, size:12}} : undefined;
+    const pad = fill ? {left:240, right:240} : undefined;
+    kids.push(new D.Paragraph({alignment:align, shading:fill, indent:pad, children:runs(strip(d.name), {bold:lk.nameBold ?? (style !== "classic" && style !== "minimal"), size:lk.name, color:lk.nameColor, allCaps:lk.nameCaps, characterSpacing:lk.nameSpacing, ...(lk.nameFont ? {font:lk.nameFont} : {})}), spacing:{before:fill ? 0 : 0, after:d.contact.length ? (fill ? 0 : 40) : 200}, border:d.contact.length ? undefined : rule}));
+    if (d.contact.length) kids.push(new D.Paragraph({alignment:align, shading:fill, indent:pad, children:d.contact.flatMap((c, i) => [...(i ? [new D.TextRun({break:1})] : []), ...runs(strip(c), {size:size - 2, color:lk.contactColor || "555555", italics:!!lk.contactItalic, ...(lk.contactFont ? {font:lk.contactFont} : {})})]), spacing:{after:200}, border:rule}));
   }
   const body = d.name && L ? d.body : md;
   if (kind === "resume" && style === "sidebar"){
